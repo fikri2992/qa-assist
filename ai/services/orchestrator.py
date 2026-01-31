@@ -1,8 +1,13 @@
-﻿from __future__ import annotations
+﻿"""
+Orchestrator - Main service for coordinating QA analysis.
 
+Provides both stub (non-LLM) and ADK-powered analysis depending on configuration.
+"""
+from __future__ import annotations
+
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, List
-import os
 
 
 @dataclass
@@ -36,35 +41,31 @@ class LogAnalyst(BaseAgent):
     name = "log_analyst"
 
     def run(self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]) -> AgentResult:
+        from ai.tools.event_tools import extract_error_events
+        
         issues: List[Dict[str, Any]] = []
         evidence: List[Dict[str, Any]] = []
-        for event in events:
+        
+        for event in extract_error_events(events):
             if event.get("type") == "console":
                 message = str(event.get("payload", {}).get("message", ""))
-                level = str(event.get("payload", {}).get("level", ""))
-                if "error" in message.lower() or level.lower() in {"error", "fatal"}:
-                    issues.append(
-                        {
-                            "title": "Console error detected",
-                            "severity": "medium",
-                            "detail": message,
-                            "ts": event.get("ts"),
-                        }
-                    )
-                    evidence.append({"type": "console", "message": message, "ts": event.get("ts")})
-            if event.get("type") == "network":
+                issues.append({
+                    "title": "Console error detected",
+                    "severity": "medium",
+                    "detail": message,
+                    "ts": event.get("ts"),
+                })
+                evidence.append({"type": "console", "message": message, "ts": event.get("ts")})
+            elif event.get("type") == "network":
                 status = event.get("payload", {}).get("status")
                 url = event.get("payload", {}).get("url", "")
-                if isinstance(status, (int, float)) and int(status) >= 400:
-                    issues.append(
-                        {
-                            "title": "Network error detected",
-                            "severity": "medium",
-                            "detail": f"{status} {url}",
-                            "ts": event.get("ts"),
-                        }
-                    )
-                    evidence.append({"type": "network", "status": status, "url": url, "ts": event.get("ts")})
+                issues.append({
+                    "title": "Network error detected",
+                    "severity": "medium",
+                    "detail": f"{status} {url}",
+                    "ts": event.get("ts"),
+                })
+                evidence.append({"type": "network", "status": status, "url": url, "ts": event.get("ts")})
 
         summary = "No console errors detected." if not issues else "Console errors detected in this chunk."
         return AgentResult(self.name, summary, issues, evidence, [])
@@ -81,21 +82,24 @@ class ReproPlanner(BaseAgent):
     name = "repro_planner"
 
     def run(self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]) -> AgentResult:
+        from ai.tools.event_tools import filter_interaction_events
+        
         steps: List[str] = []
-        for event in events:
+        for event in filter_interaction_events(events):
             event_type = event.get("type")
             if event_type == "interaction":
                 text = _event_text(event)
                 if text:
                     steps.append(text)
-            if event_type == "marker":
+            elif event_type == "marker":
                 label = event.get("payload", {}).get("label") or event.get("payload", {}).get("message")
                 if label:
                     steps.append(f"Marker: {label}")
-            if event_type == "annotation":
+            elif event_type == "annotation":
                 text = event.get("payload", {}).get("text")
                 if text:
                     steps.append(f"Annotation: {text}")
+                    
         summary = "Repro steps derived from interaction events." if steps else "No interaction steps captured."
         return AgentResult(self.name, summary, [], [], steps)
 
@@ -108,6 +112,8 @@ class Synthesizer(BaseAgent):
 
 
 class StubOrchestrator:
+    """Non-LLM orchestrator for testing and fallback."""
+    
     def __init__(self) -> None:
         self.agents = [LogAnalyst(), VideoAnalyst(), ReproPlanner(), Synthesizer()]
         self.use_llm = bool(os.getenv("GEMINI_API_KEY"))
@@ -170,6 +176,7 @@ class StubOrchestrator:
 
 
 def _should_use_adk() -> bool:
+    """Check if ADK should be enabled based on environment."""
     adk_enabled = os.getenv("ADK_ENABLED", "true").lower() in {"1", "true", "yes"}
     google_key = os.getenv("GOOGLE_API_KEY")
     gemini_key = os.getenv("GEMINI_API_KEY")
@@ -180,13 +187,14 @@ def _should_use_adk() -> bool:
 
 
 class Orchestrator:
+    """Main orchestrator that delegates to ADK or stub implementation."""
+    
     def __init__(self) -> None:
         self.stub = StubOrchestrator()
         self.adk = None
         if _should_use_adk():
             try:
                 from ai.services.adk_orchestrator import AdkOrchestrator
-
                 self.adk = AdkOrchestrator()
             except Exception:
                 self.adk = None

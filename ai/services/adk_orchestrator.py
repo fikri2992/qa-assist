@@ -1,3 +1,8 @@
+"""
+ADK Orchestrator - Coordinates ADK agents for QA analysis.
+
+Uses the agents defined in ai/agents/ package.
+"""
 from __future__ import annotations
 
 import asyncio
@@ -12,6 +17,10 @@ from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
 from ai.services.checkpoints import CheckpointStore
+from ai.agents.analysis import log_analyst, video_analyst, repro_planner, synthesizer
+from ai.agents.chat import create_qa_chat_agent
+from ai.tools.event_tools import filter_console_events, filter_network_events, filter_interaction_events
+from ai.tools.checkpoint_tools import load_checkpoint_context
 
 try:
     from google.adk.runners import Runner
@@ -32,55 +41,22 @@ class AgentOutput:
 
 
 class AdkOrchestrator:
+    """Orchestrates ADK agents for QA session analysis."""
+    
     def __init__(self) -> None:
         self.app_name = "qa-assist-ai"
         self.user_id = "qa-assist"
         self.session_service = InMemorySessionService()
         self.checkpoints = CheckpointStore.from_env()
 
-        self.text_model = os.getenv("ADK_TEXT_MODEL", "gemini-3-flash")
-        self.video_model = os.getenv("ADK_VIDEO_MODEL", "gemini-3-pro-preview")
+        self.text_model = os.getenv("ADK_TEXT_MODEL", "gemini-2.0-flash")
+        self.video_model = os.getenv("ADK_VIDEO_MODEL", "gemini-2.0-flash")
 
-        self.log_agent = LlmAgent(
-            name="log_analyst",
-            model=self.text_model,
-            instruction=(
-                "You analyze console and network events. Return JSON with keys: "
-                "summary (string), issues (array), evidence (array). "
-                "Issues should include title, severity (low/medium/high), detail, ts, source, category. "
-                "Evidence should include type, message or url/status, ts. "
-                "Use checkpoint context to avoid duplicates and to note recurring errors."
-            ),
-        )
-        self.video_agent = LlmAgent(
-            name="video_analyst",
-            model=self.video_model,
-            instruction=(
-                "You analyze recorded UI video for visual/UI/UX issues. "
-                "Return JSON with keys: summary (string), issues (array), evidence (array). "
-                "Issues should include title, severity (low/medium/high), detail, timestamp_start, timestamp_end, "
-                "ui_area, confidence. Evidence should include timestamp or range if possible. "
-                "If video_url is missing, explain that video could not be analyzed and return empty arrays."
-            ),
-        )
-        self.repro_agent = LlmAgent(
-            name="repro_planner",
-            model=self.text_model,
-            instruction=(
-                "You derive reproduction steps from interaction events and notes. "
-                "Return JSON with keys: summary (string), repro_steps (array of strings). "
-                "Include expected vs actual when possible in step text, and include relevant URLs."
-            ),
-        )
-        self.synth_agent = LlmAgent(
-            name="synthesizer",
-            model=self.text_model,
-            instruction=(
-                "You consolidate findings into a short summary and suspected root cause. "
-                "Return JSON with keys: summary (string), suspected_root_cause (string), "
-                "severity_breakdown (object), top_issues (array)."
-            ),
-        )
+        # Use agents from ai/agents/analysis/
+        self.log_agent = log_analyst
+        self.video_agent = video_analyst
+        self.repro_agent = repro_planner
+        self.synth_agent = synthesizer
 
     def analyze_chunk(self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]:
         return self._run_sync(self._analyze_chunk_async(session, chunk, events))
@@ -248,14 +224,8 @@ class AdkOrchestrator:
             "events": self._trim_events(events),
             "checkpoint": self._checkpoint_context(checkpoint),
         }
-        agent = LlmAgent(
-            name="qa_chat",
-            model=self._pick_model(model),
-            instruction=(
-                "Answer as a QA assistant. Use the provided session context, analysis, and events. "
-                "Return JSON with keys: reply (string), suggested_next_steps (array of strings)."
-            ),
-        )
+        # Use chat agent factory from ai/agents/chat/
+        agent = create_qa_chat_agent(self._pick_model(model))
         response_text = await self._run_agent(agent, json.dumps(prompt, ensure_ascii=False))
         parsed = self._parse_json(response_text)
         reply = parsed.get("reply") or "No response generated."
@@ -289,10 +259,11 @@ class AdkOrchestrator:
         }
 
     def _build_log_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        events = payload.get("events", [])
         return {
             "session": payload.get("session"),
             "chunk": payload.get("chunk"),
-            "events": self._filter_events(payload.get("events", []), {"console", "network"}),
+            "events": filter_console_events(events) + filter_network_events(events),
             "checkpoint": payload.get("checkpoint", {}),
         }
 
@@ -300,7 +271,7 @@ class AdkOrchestrator:
         return {
             "session": payload.get("session"),
             "chunk": payload.get("chunk"),
-            "events": self._filter_events(payload.get("events", []), {"interaction", "marker", "annotation"}),
+            "events": filter_interaction_events(payload.get("events", [])),
             "checkpoint": payload.get("checkpoint", {}),
         }
 
@@ -309,9 +280,7 @@ class AdkOrchestrator:
             "session": payload.get("session"),
             "chunk": payload.get("chunk"),
             "video_url": payload.get("video_url"),
-            "events": self._filter_events(
-                payload.get("events", []), {"marker", "annotation", "interaction"}
-            ),
+            "events": filter_interaction_events(payload.get("events", [])),
             "checkpoint": payload.get("checkpoint", {}),
         }
 
@@ -324,10 +293,6 @@ class AdkOrchestrator:
         if not isinstance(events, list):
             return []
         return events[-limit:]
-
-    def _filter_events(self, events: List[Dict[str, Any]], allowed: set) -> List[Dict[str, Any]]:
-        filtered = [event for event in events if event.get("type") in allowed]
-        return self._trim_events(filtered, limit=200)
 
     def _severity_breakdown(self, issues: List[Dict[str, Any]]) -> Dict[str, int]:
         breakdown = {"high": 0, "medium": 0, "low": 0, "unknown": 0}
