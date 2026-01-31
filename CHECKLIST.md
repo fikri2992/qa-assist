@@ -21,7 +21,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [ ] Marker input via shortcut + annotation overlay.
 - [ ] Persist session list locally and sync to backend. (device id only)
 - [~] Web playback with timeline + logs + annotations + chat UI. (logs only)
-- [~] AI per chunk with aggregated report. (stub)
+- [~] AI per chunk with aggregated report. (ADK wired, still basic)
 - [ ] Resumable uploads. (not implemented)
 - [~] Tab switch + idle handling. (auto-stop; no resume/new chunk)
 - [ ] GCS storage + signed URLs. (local storage only)
@@ -34,7 +34,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Phoenix API for sessions/events/chunks. (backend/lib/qa_assist_web/controllers/*)
 - [~] Storage layer. (local only; GCS stub exists)
 - [ ] Redis job dispatch. (not wired)
-- [ ] ADK Python multi-agent orchestration. (not implemented)
+- [x] ADK Python multi-agent orchestration. (ai/adk_orchestrator.py)
 - [ ] Signed upload URLs + resumable uploads. (not implemented)
 
 ## 04 — Data Model (`plan/04-data-model.md`)
@@ -56,8 +56,8 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] `POST /sessions/:id/events`
 - [x] `GET /sessions/:id/events` (extra for UI)
 - [x] `GET /sessions/:id/analysis`
-- [~] `GET /sessions/:id/artifacts` (returns empty list)
-- [~] `GET /artifacts/:id` (always 404)
+- [x] `GET /sessions/:id/artifacts` (artifact list)
+- [x] `GET /artifacts/:id` (download script)
 - [x] `GET /` root API ping. (root_controller.ex)
 
 ## 06 — Extension (`plan/06-extension.md`)
@@ -73,20 +73,20 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 ## 07 — Web App (`plan/07-webapp.md`)
 - [x] Session list view. (webapp/app.js)
 - [x] Session detail view.
-- [~] Video playback (first chunk only, no timeline UI)
+- [~] Video playback (multi-chunk timeline UI)
 - [x] Logs panel (console + network)
 - [~] Interaction trail (raw JSON only)
 - [ ] Annotations overlay.
 - [ ] Chat UI.
-- [ ] Downloadable repro scripts.
+- [~] Downloadable repro scripts. (Playwright stub)
 
 ## 08 — AI Orchestration (`plan/08-ai-orchestration.md`)
-- [ ] ADK Python multi-agent pipeline. (not implemented)
+- [x] ADK Python multi-agent pipeline. (ai/adk_orchestrator.py)
 - [~] Per-chunk analysis workflow. (stub only)
 - [ ] Video analysis.
 - [ ] Repro planner / synthesizer.
-- [ ] Playwright generator + verifier.
-- [ ] Script export.
+- [ ] Playwright generator + verifier. (deferred)
+- [~] Script export. (Playwright stub)
 
 ## 09 — Milestones and Risks (`plan/09-milestones-and-risks.md`)
 - [~] Capture MVP. (core capture + ingest works)

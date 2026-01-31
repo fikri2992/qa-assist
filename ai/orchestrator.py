@@ -87,7 +87,7 @@ class Synthesizer(BaseAgent):
         return AgentResult(self.name, "Synthesizer stub.", [], [], [])
 
 
-class Orchestrator:
+class StubOrchestrator:
     def __init__(self) -> None:
         self.agents = [LogAnalyst(), VideoAnalyst(), ReproPlanner(), Synthesizer()]
         self.use_llm = bool(os.getenv("GEMINI_API_KEY"))
@@ -145,3 +145,36 @@ class Orchestrator:
         if not issues:
             return "No obvious issues detected in this chunk."
         return "Potential issues detected in this chunk."
+
+
+def _should_use_adk() -> bool:
+    adk_enabled = os.getenv("ADK_ENABLED", "true").lower() in {"1", "true", "yes"}
+    google_key = os.getenv("GOOGLE_API_KEY")
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if not google_key and gemini_key:
+        os.environ["GOOGLE_API_KEY"] = gemini_key
+        google_key = gemini_key
+    return adk_enabled and bool(google_key)
+
+
+class Orchestrator:
+    def __init__(self) -> None:
+        self.stub = StubOrchestrator()
+        self.adk = None
+        if _should_use_adk():
+            try:
+                from adk_orchestrator import AdkOrchestrator
+
+                self.adk = AdkOrchestrator()
+            except Exception:
+                self.adk = None
+
+    def analyze_chunk(self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]:
+        if self.adk:
+            return self.adk.analyze_chunk(session, chunk, events)
+        return self.stub.analyze_chunk(session, chunk, events)
+
+    def aggregate_session(self, session: Dict[str, Any], chunk_reports: List[Dict[str, Any]]) -> Dict[str, Any]:
+        if self.adk:
+            return self.adk.aggregate_session(session, chunk_reports)
+        return self.stub.aggregate_session(session, chunk_reports)

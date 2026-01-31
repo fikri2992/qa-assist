@@ -15,5 +15,9 @@ Endpoints:
 - POST /aggregate
 
 Optional env:
-- GEMINI_API_KEY
+- ADK_ENABLED (default: true when API key is present)
+- GOOGLE_API_KEY (preferred for ADK)
+- ADK_TEXT_MODEL (default: gemini-3-flash)
+- ADK_VIDEO_MODEL (default: gemini-3-pro-preview)
+- GEMINI_API_KEY (legacy fallback)
 - GEMINI_MODEL (default: gemini-1.5-pro)
