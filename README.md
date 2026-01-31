@@ -27,7 +27,7 @@ mix phx.server
 
 API base URL: `http://localhost:4000/api`
 
-### Optional: GCS direct uploads
+### Optional: GCS direct uploads + signed playback URLs
 Set environment variables (recommend putting them in repo root `.env`) before starting the backend:
 
 ```

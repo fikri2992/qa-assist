@@ -9,6 +9,16 @@ defmodule QaAssist.Storage do
     backend().store_upload(chunk, upload)
   end
 
+  def media_url(nil), do: nil
+
+  def media_url(gcs_uri) when is_binary(gcs_uri) do
+    if backend() == QaAssist.Storage.Gcs do
+      QaAssist.Storage.Gcs.signed_download_url(gcs_uri)
+    else
+      public_url(gcs_uri)
+    end
+  end
+
   def public_url(nil), do: nil
 
   def public_url(gcs_uri) when is_binary(gcs_uri) do

@@ -38,6 +38,19 @@ defmodule QaAssist.Storage.Gcs do
     {:error, "direct upload required for gcs storage"}
   end
 
+  def signed_download_url(gcs_uri) when is_binary(gcs_uri) do
+    config = gcs_config!()
+    validate_config!(config)
+
+    case parse_gcs_uri(gcs_uri) do
+      {:ok, bucket, object} ->
+        signed_url("GET", bucket, object, %{"host" => "storage.googleapis.com"}, config)
+
+      :error ->
+        gcs_uri
+    end
+  end
+
   defp base_headers(nil), do: %{"host" => "storage.googleapis.com"}
 
   defp base_headers(content_type) do
@@ -151,6 +164,15 @@ defmodule QaAssist.Storage.Gcs do
       expires: Keyword.get(gcs, :expires)
     }
   end
+
+  defp parse_gcs_uri("gs://" <> rest) do
+    case String.split(rest, "/", parts: 2) do
+      [bucket, object] -> {:ok, bucket, object}
+      _ -> :error
+    end
+  end
+
+  defp parse_gcs_uri(_), do: :error
 
   defp validate_config!(config) do
     cond do

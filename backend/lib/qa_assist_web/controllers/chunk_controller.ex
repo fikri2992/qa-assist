@@ -76,7 +76,7 @@ defmodule QaAssistWeb.ChunkController do
       status: chunk.status,
       analysis_status: chunk.analysis_status,
       gcs_uri: chunk.gcs_uri,
-      video_url: Storage.public_url(chunk.gcs_uri)
+      video_url: Storage.media_url(chunk.gcs_uri)
     }
   end
 end
