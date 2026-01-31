@@ -1,12 +1,14 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>QA Assist</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body class="min-h-screen theme-console text-[#e9eef7]">
+<script setup>
+import { onMounted } from "vue";
+import { initApp } from "./app";
+
+onMounted(() => {
+  initApp();
+});
+</script>
+
+<template>
+  <div class="min-h-screen theme-console text-[#e9eef7]">
     <div class="noise-overlay pointer-events-none fixed inset-0 opacity-10 mix-blend-soft-light"></div>
 
     <header class="grid gap-6 px-10 pb-5 pt-8 md:grid-cols-[1.2fr_1fr]">
@@ -182,7 +184,5 @@
         </div>
       </section>
     </main>
-
-    <script src="app.js"></script>
-  </body>
-</html>
+  </div>
+</template>

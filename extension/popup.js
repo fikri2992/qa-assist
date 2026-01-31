@@ -6,26 +6,11 @@ const statusEl = document.getElementById("status");
 const sessionList = document.getElementById("sessionList");
 const openWebBtn = document.getElementById("openWeb");
 
-const defaultWebUrl = chrome.runtime.getURL("webapp/index.html");
-
-function shouldUsePackaged(url) {
-  if (!url) return true;
-  return /localhost:5173|127\.0\.0\.1:5173/.test(url);
-}
-
-function normalizeWebUrl(raw) {
-  if (!raw) return defaultWebUrl;
-  if (raw.startsWith("chrome-extension://")) {
-    return raw.startsWith(`chrome-extension://${chrome.runtime.id}/`) ? raw : defaultWebUrl;
-  }
-  if (shouldUsePackaged(raw)) return defaultWebUrl;
-  return normalizeUrl(raw);
-}
+const defaultWebUrl = "http://localhost:5173";
 
 chrome.storage.local.get(["qa_api_base", "qa_recording", "qa_status", "qa_web_url"], (state) => {
   apiBaseInput.value = state.qa_api_base || "http://localhost:4000/api";
-  const storedWebUrl = state.qa_web_url || "";
-  webUrlInput.value = normalizeWebUrl(storedWebUrl);
+  webUrlInput.value = state.qa_web_url || defaultWebUrl;
   if (state.qa_status) {
     updateStatus(capitalize(state.qa_status));
   } else {
@@ -71,7 +56,7 @@ stopBtn.addEventListener("click", () => {
 
 openWebBtn.addEventListener("click", () => {
   const raw = webUrlInput.value.trim();
-  const url = normalizeWebUrl(raw);
+  const url = normalizeUrl(raw || defaultWebUrl);
   chrome.storage.local.set({ qa_web_url: url });
   chrome.tabs.create({ url });
 });

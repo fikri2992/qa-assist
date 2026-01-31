@@ -1,4 +1,5 @@
-ï»¿const apiBaseInput = document.getElementById("apiBase");
+export function initApp() {
+const apiBaseInput = document.getElementById("apiBase");
 const deviceIdInput = document.getElementById("deviceId");
 const loadSessionsBtn = document.getElementById("loadSessions");
 const sessionList = document.getElementById("sessionList");
@@ -105,7 +106,7 @@ async function loadSessions() {
 
 function addSessionItem(session, apiBase) {
   const item = document.createElement("li");
-  item.textContent = `${session.id.slice(0, 8)} Â· ${session.status}`;
+  item.textContent = `${session.id.slice(0, 8)} · ${session.status}`;
   item.onclick = () => selectSession(session.id, apiBase, item);
   sessionList.appendChild(item);
 }
@@ -123,7 +124,7 @@ async function selectSession(sessionId, apiBase, selectedItem) {
     const events = await fetchJson(`${apiBase}/sessions/${sessionId}/events?limit=1000`);
     const artifacts = await fetchJson(`${apiBase}/sessions/${sessionId}/artifacts`);
 
-    sessionMeta.textContent = `Started ${formatDate(session.started_at)} Â· ${session.chunks.length} chunks`;
+    sessionMeta.textContent = `Started ${formatDate(session.started_at)} · ${session.chunks.length} chunks`;
     setStatus(session.status);
 
     const orderedEvents = events.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
@@ -158,7 +159,7 @@ function renderChunks(chunks) {
     const pill = document.createElement("div");
     pill.className = "chunk-pill";
     pill.dataset.chunkId = chunk.id;
-    pill.textContent = `#${chunk.idx} Â· ${chunk.status} Â· ${chunk.analysis_status}`;
+    pill.textContent = `#${chunk.idx} · ${chunk.status} · ${chunk.analysis_status}`;
     pill.addEventListener("click", () => setCurrentChunk(index));
     chunkList.appendChild(pill);
   });
@@ -619,7 +620,7 @@ function addChatMessage(role, text) {
 function setChatBusy(isBusy) {
   chatSend.disabled = isBusy;
   chatStop.disabled = !isBusy;
-  chatSend.textContent = isBusy ? "â€¦" : "âžœ";
+  chatSend.textContent = isBusy ? "…" : "?";
 }
 
 async function sendChatMessage() {
@@ -716,3 +717,6 @@ function updateChatModelLabel() {
 
 updateChatModelLabel();
 setChatBusy(false);
+
+}
+
