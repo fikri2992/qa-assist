@@ -39,20 +39,32 @@ class LogAnalyst(BaseAgent):
         issues: List[Dict[str, Any]] = []
         evidence: List[Dict[str, Any]] = []
         for event in events:
-            if event.get("type") != "console":
-                continue
-            message = str(event.get("payload", {}).get("message", ""))
-            level = str(event.get("payload", {}).get("level", ""))
-            if "error" in message.lower() or level.lower() in {"error", "fatal"}:
-                issues.append(
-                    {
-                        "title": "Console error detected",
-                        "severity": "medium",
-                        "detail": message,
-                        "ts": event.get("ts"),
-                    }
-                )
-                evidence.append({"type": "console", "message": message, "ts": event.get("ts")})
+            if event.get("type") == "console":
+                message = str(event.get("payload", {}).get("message", ""))
+                level = str(event.get("payload", {}).get("level", ""))
+                if "error" in message.lower() or level.lower() in {"error", "fatal"}:
+                    issues.append(
+                        {
+                            "title": "Console error detected",
+                            "severity": "medium",
+                            "detail": message,
+                            "ts": event.get("ts"),
+                        }
+                    )
+                    evidence.append({"type": "console", "message": message, "ts": event.get("ts")})
+            if event.get("type") == "network":
+                status = event.get("payload", {}).get("status")
+                url = event.get("payload", {}).get("url", "")
+                if isinstance(status, (int, float)) and int(status) >= 400:
+                    issues.append(
+                        {
+                            "title": "Network error detected",
+                            "severity": "medium",
+                            "detail": f"{status} {url}",
+                            "ts": event.get("ts"),
+                        }
+                    )
+                    evidence.append({"type": "network", "status": status, "url": url, "ts": event.get("ts")})
 
         summary = "No console errors detected." if not issues else "Console errors detected in this chunk."
         return AgentResult(self.name, summary, issues, evidence, [])
@@ -71,11 +83,19 @@ class ReproPlanner(BaseAgent):
     def run(self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]) -> AgentResult:
         steps: List[str] = []
         for event in events:
-            if event.get("type") != "interaction":
-                continue
-            text = _event_text(event)
-            if text:
-                steps.append(text)
+            event_type = event.get("type")
+            if event_type == "interaction":
+                text = _event_text(event)
+                if text:
+                    steps.append(text)
+            if event_type == "marker":
+                label = event.get("payload", {}).get("label") or event.get("payload", {}).get("message")
+                if label:
+                    steps.append(f"Marker: {label}")
+            if event_type == "annotation":
+                text = event.get("payload", {}).get("text")
+                if text:
+                    steps.append(f"Annotation: {text}")
         summary = "Repro steps derived from interaction events." if steps else "No interaction steps captured."
         return AgentResult(self.name, summary, [], [], steps)
 
@@ -98,9 +118,11 @@ class StubOrchestrator:
         evidence = [item for result in results for item in result.evidence]
         steps = [step for result in results for step in result.steps]
         summary = self._summarize(results, issues)
+        suspected_root_cause = issues[0]["detail"] if issues else None
 
         return {
             "summary": summary,
+            "suspected_root_cause": suspected_root_cause,
             "issues": issues,
             "evidence": evidence,
             "repro_steps": steps,

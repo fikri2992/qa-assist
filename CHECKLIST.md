@@ -10,7 +10,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Markers/annotations during session. (overlay + shortcuts)
 - [~] Environment metadata (window/screen size, OS, browser version). (viewport/screen/platform/userAgentData added)
 - [x] Store session artifacts in backend. (backend/lib/qa_assist/storage/local.ex)
-- [~] AI analysis per chunk. (stub only)
+- [~] AI analysis per chunk. (heuristics + ADK)
 - [x] Aggregated report after session end. (session analysis on stop)
 
 ## 02 — Requirements and Decisions (`plan/02-requirements-and-decisions.md`)
@@ -82,7 +82,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 
 ## 08 — AI Orchestration (`plan/08-ai-orchestration.md`)
 - [x] ADK Python multi-agent pipeline. (ai/adk_orchestrator.py)
-- [~] Per-chunk analysis workflow. (stub only)
+- [~] Per-chunk analysis workflow. (heuristics + ADK)
 - [~] Video analysis. (ADK multimodal prompt)
 - [~] Repro planner / synthesizer. (ADK agents)
 - [ ] Playwright generator + verifier. (deferred)
