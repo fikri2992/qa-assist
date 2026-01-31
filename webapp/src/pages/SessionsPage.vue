@@ -41,10 +41,6 @@ const { sessions, loading } = storeToRefs(sessionsStore);
           <i class="pi pi-check-circle"></i>
           {{ sessions.length }} session(s) available. Select one from the sidebar.
         </p>
-        <p v-else class="session-hint muted">
-          <i class="pi pi-arrow-left"></i>
-          Enter your API details and load sessions to get started.
-        </p>
       </template>
     </div>
   </div>

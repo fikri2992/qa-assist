@@ -8,56 +8,58 @@
   </head>
   <body class="popup-shell">
     <div class="popup-panel">
+      <!-- Header -->
       <header class="popup-header">
-        <div class="popup-brand">
-          <div class="logo-orb">
-            <span class="logo-core"></span>
-          </div>
-          <div>
-            <div class="brand-title">QA Assist</div>
-            <div class="brand-subtitle">Field log console</div>
-          </div>
-        </div>
-        <div id="status" data-status="idle" class="status-pill">Idle</div>
+        <div class="logo-orb"><span class="logo-core"></span></div>
+        <span class="brand-title">QA Assist</span>
       </header>
 
-      <section class="panel-block">
-        <div class="section-label">Connection</div>
-        <input id="apiBase" type="text" placeholder="http://localhost:4000/api" class="field-input" />
-      </section>
+      <!-- Tabs -->
+      <nav class="tabs">
+        <button class="tab active" data-tab="record">Record</button>
+        <button class="tab" data-tab="sessions">Sessions</button>
+      </nav>
 
-      <section class="panel-block">
-        <div class="section-label">Web app (vite)</div>
-        <div class="field-row">
-          <input id="webUrl" type="text" placeholder="http://localhost:5173" class="field-input" />
-          <button id="openWeb" class="ghost-btn" type="button">Open</button>
+      <!-- Record Tab -->
+      <div id="recordTab" class="tab-content active">
+        <div id="recordingControl" class="recording-control" data-state="idle">
+          <button id="mainBtn" class="main-btn">
+            <span class="btn-icon"></span>
+            <span class="btn-label">Start Recording</span>
+          </button>
+          <div class="recording-meta">
+            <span id="statusText" class="status-text">Ready</span>
+            <span id="duration" class="duration"></span>
+          </div>
         </div>
-      </section>
 
-      <section class="panel-block">
-        <div class="section-label">Session</div>
-        <div class="grid grid-cols-2 gap-2">
-          <button id="startBtn" class="primary-btn">Start</button>
-          <button id="stopBtn" class="ghost-btn">Stop</button>
+        <!-- Quick Actions - Only shown when recording -->
+        <div id="quickActions" class="quick-actions hidden">
+          <button id="markerBtn" class="action-btn" title="Ctrl+Shift+M">
+            <span class="action-icon">🚩</span>
+            <span>Marker</span>
+          </button>
+          <button id="annotateBtn" class="action-btn" title="Ctrl+Shift+K">
+            <span class="action-icon">📝</span>
+            <span>Note</span>
+          </button>
         </div>
-      </section>
 
-      <section class="panel-block">
-        <div class="section-label">Shortcuts</div>
-        <div class="shortcut-row">
-          <span>Marker</span>
-          <code class="shortcut-chip">Ctrl+Shift+M</code>
+        <!-- Shortcuts hint -->
+        <div class="shortcuts-hint">
+          <span>Marker: <kbd>Ctrl+Shift+M</kbd></span>
+          <span>Note: <kbd>Ctrl+Shift+K</kbd></span>
         </div>
-        <div class="shortcut-row">
-          <span>Annotate</span>
-          <code class="shortcut-chip">Ctrl+Shift+K</code>
-        </div>
-      </section>
+      </div>
 
-      <section class="panel-block">
-        <div class="section-label">Recent sessions</div>
+      <!-- Sessions Tab -->
+      <div id="sessionsTab" class="tab-content">
         <div id="sessionList" class="session-list"></div>
-      </section>
+        <button id="openDashboard" class="dashboard-btn">
+          <span>Open Dashboard</span>
+          <span class="arrow">→</span>
+        </button>
+      </div>
     </div>
 
     <script src="popup.js"></script>
