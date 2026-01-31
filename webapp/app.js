@@ -41,6 +41,7 @@ let currentEvents = [];
 let currentSession = null;
 let currentApiBase = storedApiBase;
 let chatAbort = null;
+let analysisPoller = null;
 
 function setStatus(text) {
   sessionStatus.textContent = text || "";
@@ -77,6 +78,10 @@ async function loadSessions() {
   sessionTitle.textContent = "Loading...";
   sessionMeta.textContent = "";
   setStatus("");
+  if (analysisPoller) {
+    clearInterval(analysisPoller);
+    analysisPoller = null;
+  }
 
   try {
     const sessions = await fetchJson(`${apiBase}/sessions?device_id=${deviceId}`);
@@ -131,6 +136,7 @@ async function selectSession(sessionId, apiBase, selectedItem) {
     renderMarkers(orderedEvents);
     renderAnnotations(orderedEvents);
     renderAnalysis(analysis);
+    startAnalysisPolling(sessionId, apiBase);
     renderArtifacts(artifacts, apiBase);
     renderChatIntro();
   } catch (err) {
@@ -144,6 +150,7 @@ function renderChunks(chunks) {
   chunks.forEach((chunk, index) => {
     const pill = document.createElement("div");
     pill.className = "chunk-pill";
+    pill.dataset.chunkId = chunk.id;
     pill.textContent = `#${chunk.idx} · ${chunk.status} · ${chunk.analysis_status}`;
     pill.addEventListener("click", () => setCurrentChunk(index));
     chunkList.appendChild(pill);
@@ -392,6 +399,7 @@ function renderAnalysis(analysis) {
     analysisReport.textContent = "";
     analysisStatus.textContent = "pending";
     autonomyList.innerHTML = "";
+    updateChunkAnalysisBadges({});
     return;
   }
 
@@ -405,6 +413,7 @@ function renderAnalysis(analysis) {
   }
 
   renderAutonomy(analysis);
+  updateChunkAnalysisBadges(analysis);
 }
 
 function renderAutonomy(analysis) {
@@ -440,6 +449,41 @@ function renderAutonomy(analysis) {
     `;
     autonomyList.appendChild(row);
   });
+}
+
+function updateChunkAnalysisBadges(analysis) {
+  const analyses = Array.isArray(analysis.analyses) ? analysis.analyses : [];
+  const statusByChunk = {};
+  analyses.forEach((item) => {
+    if (!item.chunk_id) return;
+    statusByChunk[item.chunk_id] = item.status;
+  });
+
+  const pills = chunkList.querySelectorAll(".chunk-pill");
+  pills.forEach((pill) => {
+    const chunkId = pill.dataset.chunkId;
+    const status = statusByChunk[chunkId];
+    pill.classList.toggle("done", status === "done");
+    pill.classList.toggle("running", status === "running");
+    pill.classList.toggle("failed", status === "failed");
+  });
+}
+
+function startAnalysisPolling(sessionId, apiBase) {
+  if (analysisPoller) {
+    clearInterval(analysisPoller);
+  }
+  const poll = async () => {
+    if (!currentSession || currentSession.id !== sessionId) return;
+    try {
+      const analysis = await fetchJson(`${apiBase}/sessions/${sessionId}/analysis`);
+      renderAnalysis(analysis);
+    } catch {
+      // ignore transient failures
+    }
+  };
+  poll();
+  analysisPoller = setInterval(poll, 5000);
 }
 
 function renderChatIntro() {

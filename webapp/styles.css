@@ -364,6 +364,18 @@ video {
   border: 1px solid rgba(249, 115, 22, 0.6);
 }
 
+.chunk-pill.running {
+  border: 1px solid rgba(56, 189, 248, 0.6);
+}
+
+.chunk-pill.done {
+  border: 1px solid rgba(34, 197, 94, 0.6);
+}
+
+.chunk-pill.failed {
+  border: 1px solid rgba(248, 113, 113, 0.6);
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
