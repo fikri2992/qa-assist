@@ -13,10 +13,19 @@ function shouldUsePackaged(url) {
   return /localhost:5173|127\.0\.0\.1:5173/.test(url);
 }
 
+function normalizeWebUrl(raw) {
+  if (!raw) return defaultWebUrl;
+  if (raw.startsWith("chrome-extension://")) {
+    return raw.startsWith(`chrome-extension://${chrome.runtime.id}/`) ? raw : defaultWebUrl;
+  }
+  if (shouldUsePackaged(raw)) return defaultWebUrl;
+  return normalizeUrl(raw);
+}
+
 chrome.storage.local.get(["qa_api_base", "qa_recording", "qa_status", "qa_web_url"], (state) => {
   apiBaseInput.value = state.qa_api_base || "http://localhost:4000/api";
-  const storedWebUrl = state.qa_web_url;
-  webUrlInput.value = shouldUsePackaged(storedWebUrl) ? defaultWebUrl : storedWebUrl;
+  const storedWebUrl = state.qa_web_url || "";
+  webUrlInput.value = normalizeWebUrl(storedWebUrl);
   if (state.qa_status) {
     updateStatus(capitalize(state.qa_status));
   } else {
@@ -62,7 +71,7 @@ stopBtn.addEventListener("click", () => {
 
 openWebBtn.addEventListener("click", () => {
   const raw = webUrlInput.value.trim();
-  const url = shouldUsePackaged(raw) ? defaultWebUrl : normalizeUrl(raw);
+  const url = normalizeWebUrl(raw);
   chrome.storage.local.set({ qa_web_url: url });
   chrome.tabs.create({ url });
 });
