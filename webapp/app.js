@@ -246,7 +246,27 @@ function getSessionWindow(session, chunks, events) {
 }
 
 function renderEvents(events) {
-  eventPane.textContent = JSON.stringify(events, null, 2);
+  const interactions = events.filter((event) => event.type === "interaction");
+  eventPane.innerHTML = "";
+
+  if (!interactions.length) {
+    eventPane.innerHTML = "<div class=\"event-item\">No interactions captured.</div>";
+    return;
+  }
+
+  interactions.forEach((event) => {
+    const payload = event.payload || {};
+    const item = document.createElement("div");
+    item.className = "event-item";
+    const label = payload.action || "interaction";
+    const selector = payload.selector || "";
+    const text = payload.text || "";
+    item.innerHTML = `
+      <strong>${escapeHtml(label)}</strong> ${escapeHtml(selector)}
+      <div class="event-meta">${escapeHtml(text)}</div>
+    `;
+    eventPane.appendChild(item);
+  });
 }
 
 function renderLogs(events) {

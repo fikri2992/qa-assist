@@ -75,7 +75,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Session detail view.
 - [~] Video playback (multi-chunk timeline UI)
 - [x] Logs panel (console + network)
-- [~] Interaction trail (raw JSON only)
+- [x] Interaction trail (clicks + DOM context)
 - [x] Annotations overlay.
 - [x] Chat UI.
 - [~] Downloadable repro scripts. (Playwright stub)
