@@ -23,6 +23,9 @@ end
 config :qa_assist, QaAssistWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+config :qa_assist, :analysis_service,
+  url: System.get_env("AI_SERVICE_URL", "http://localhost:8000")
+
 redis_enabled =
   System.get_env("REDIS_ENABLED", "false")
   |> String.downcase()
