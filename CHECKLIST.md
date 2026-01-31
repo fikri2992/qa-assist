@@ -26,7 +26,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [~] Tab switch + idle handling. (auto-pause with resume prompt)
 - [~] GCS storage + signed URLs. (supported via env)
 - [x] Redis queues. (backend/lib/qa_assist/redis_queue.ex)
-- [ ] Tailwind v4 UI. (plain CSS used)
+- [x] Tailwind v4 UI. (webapp/extension compiled with Tailwind v4 build)
 
 ## 03 — Architecture and Data Flow (`plan/03-architecture-and-dataflow.md`)
 - [x] Extension UI/background/content script split. (extension/)

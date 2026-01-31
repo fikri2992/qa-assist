@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
@@ -6,49 +6,49 @@
     <link rel="stylesheet" href="styles.css" />
     <title>QA Assist</title>
   </head>
-  <body>
-    <div class="popup">
-      <header class="header">
-        <div class="logo-block">
-          <div class="logo-ring"></div>
+  <body class="bg-[#1a1d23] text-[#e8eaed] font-[Inter] text-[13px]">
+    <div class="p-5 space-y-4 min-w-[320px]">
+      <header class="flex items-center justify-between border-b border-white/5 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-[#6b9fff]/20 to-[#6b9fff]/40 flex items-center justify-center">
+            <span class="h-3.5 w-3.5 rounded-full bg-[#6b9fff]"></span>
+          </div>
           <div>
-            <div class="logo">QA Assist</div>
-            <div class="tagline">Field log console</div>
+            <div class="text-[15px] font-semibold">QA Assist</div>
+            <div class="text-[11px] text-[#7d8590]">Field log console</div>
           </div>
         </div>
-        <div class="status" id="status" data-status="idle">Idle</div>
+        <div id="status" data-status="idle" class="rounded-md bg-[#22262e] px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-[#7d8590]">Idle</div>
       </header>
 
-      <section class="section">
-        <div class="section-title">Connection</div>
-        <div class="field">
-          <input id="apiBase" type="text" placeholder="http://localhost:4000/api" />
+      <section class="space-y-2">
+        <div class="text-[11px] uppercase tracking-[0.2em] text-[#7d8590]">Connection</div>
+        <input id="apiBase" type="text" placeholder="http://localhost:4000/api" class="w-full rounded-lg border border-white/10 bg-[#22262e] px-3 py-2 font-mono text-[12px] text-[#e8eaed]" />
+      </section>
+
+      <section class="space-y-2">
+        <div class="text-[11px] uppercase tracking-[0.2em] text-[#7d8590]">Session</div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="startBtn" class="rounded-lg bg-[#6b9fff] py-2 text-sm font-semibold text-white">Start</button>
+          <button id="stopBtn" class="rounded-lg border border-white/10 bg-[#22262e] py-2 text-sm font-semibold text-[#b4b9c1]">Stop</button>
         </div>
       </section>
 
-      <section class="section">
-        <div class="section-title">Session</div>
-        <div class="actions">
-          <button id="startBtn" class="primary">Start</button>
-          <button id="stopBtn" class="ghost">Stop</button>
-        </div>
-      </section>
-
-      <section class="section shortcuts">
-        <div class="section-title">Shortcuts</div>
-        <div class="shortcut-row">
+      <section class="space-y-2">
+        <div class="text-[11px] uppercase tracking-[0.2em] text-[#7d8590]">Shortcuts</div>
+        <div class="flex items-center justify-between text-[#b4b9c1]">
           <span>Marker</span>
-          <code>Ctrl+Shift+M</code>
+          <code class="rounded bg-[#22262e] px-2 py-1 text-[11px] text-[#7d8590]">Ctrl+Shift+M</code>
         </div>
-        <div class="shortcut-row">
+        <div class="flex items-center justify-between text-[#b4b9c1]">
           <span>Annotate</span>
-          <code>Ctrl+Shift+K</code>
+          <code class="rounded bg-[#22262e] px-2 py-1 text-[11px] text-[#7d8590]">Ctrl+Shift+K</code>
         </div>
       </section>
 
-      <section class="section">
-        <div class="section-title">Recent sessions</div>
-        <div id="sessionList" class="session-list"></div>
+      <section class="space-y-2">
+        <div class="text-[11px] uppercase tracking-[0.2em] text-[#7d8590]">Recent sessions</div>
+        <div id="sessionList" class="space-y-2"></div>
       </section>
     </div>
 

@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400 600;
+  src: url("https://fonts.gstatic.com/s/inter/v13/UcC73FwrK3iLTcviYwY.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 400 600;
+  src: url("https://fonts.gstatic.com/s/jetbrainsmono/v18/tDbc2o8.woff2") format("woff2");
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+.font-mono {
+  font-family: "JetBrains Mono", monospace;
+}
+
+#status[data-status="recording"] {
+  background: rgba(125, 211, 168, 0.15);
+  color: #7dd3a8;
+}
