@@ -73,7 +73,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 ## 07 — Web App (`plan/07-webapp.md`)
 - [x] Session list view. (webapp/app.js)
 - [x] Session detail view.
-- [~] Video playback (multi-chunk timeline UI)
+- [x] Video playback (multi-chunk timeline UI)
 - [x] Logs panel (console + network)
 - [x] Interaction trail (clicks + DOM context)
 - [x] Annotations overlay.
@@ -89,10 +89,10 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [~] Script export. (Playwright stub)
 
 ## 09 — Milestones and Risks (`plan/09-milestones-and-risks.md`)
-- [~] Capture MVP. (core capture + ingest works)
-- [~] Playback MVP. (basic playback + logs)
-- [~] AI MVP. (stub analysis)
-- [ ] Polish (idle resume, annotations, chat, badges).
+- [x] Capture MVP. (core capture + ingest works)
+- [x] Playback MVP. (timeline + logs + overlays)
+- [~] AI MVP. (heuristics + ADK)
+- [~] Polish (idle resume, annotations, chat, badges).
 
 ## 10 — Hackathon Compliance (`plan/10-hackathon-compliance.md`)
 - [x] Gemini 3 API usage. (ADK defaults to Gemini 3 models)
