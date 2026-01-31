@@ -250,6 +250,8 @@ async function startRecording(apiBaseOverride) {
   await attachDebugger(tab.id);
   await startCapture(tab.id);
 
+  chrome.tabs.sendMessage(tab.id, { type: "HIDE_RESUME_PROMPT" });
+
   enqueueEvent({
     ts: new Date().toISOString(),
     type: "env",
@@ -317,13 +319,29 @@ async function pauseRecording(autoPaused = false) {
   notifyStatus("Paused");
 }
 
-async function handleAutoPause(reason) {
+async function handleAutoPause(reason, promptTabId = null) {
   enqueueEvent({
     ts: new Date().toISOString(),
     type: "marker",
     payload: { message: `Auto-paused: ${reason}` }
   });
   await pauseRecording(true);
+
+  let tab = null;
+  if (promptTabId && Number.isFinite(promptTabId)) {
+    try {
+      tab = await chrome.tabs.get(promptTabId);
+    } catch {
+      tab = null;
+    }
+  }
+  if (!tab) {
+    tab = await getActiveTab();
+  }
+
+  if (tab?.id) {
+    chrome.tabs.sendMessage(tab.id, { type: "SHOW_RESUME_PROMPT", reason });
+  }
 }
 
 function notifyStatus(value) {
@@ -345,9 +363,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message.type === "ACTIVITY") {
     state.lastActivity = Date.now();
-    if (state.autoPaused) {
-      maybeAutoResume();
-    }
   }
   if (message.type === "CHUNK_DATA") {
     handleChunkData(message).then(() => sendResponse({ ok: true }));
@@ -366,6 +381,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       type: "marker",
       payload: message.payload
     });
+  }
+  if (message.type === "RESUME_REQUEST") {
+    startRecording(state.apiBase).then(() => sendResponse({ ok: true }));
+    return true;
   }
 });
 
@@ -398,7 +417,7 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   if (!state.recording) return;
   if (activeInfo.tabId !== state.currentTabId) {
-    await handleAutoPause("Tab switched");
+    await handleAutoPause("Tab switched", activeInfo.tabId);
   }
 });
 
@@ -508,12 +527,6 @@ async function getActiveTab() {
   }
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab;
-}
-
-async function maybeAutoResume() {
-  await loadState();
-  if (!state.autoPaused || state.recording || !state.sessionId) return;
-  await startRecording(state.apiBase);
 }
 
 async function getTabEnvironment(tabId) {

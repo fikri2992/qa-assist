@@ -2,6 +2,7 @@
   let lastPointer = { x: 0, y: 0 };
   let annotationEl = null;
   let markerEl = null;
+  let resumeEl = null;
 
   const style = document.createElement("style");
   style.textContent = `
@@ -87,6 +88,39 @@
       12% { opacity: 1; transform: translateY(0); }
       80% { opacity: 1; }
       100% { opacity: 0; transform: translateY(8px); }
+    }
+    .qa-assist-resume {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.95);
+      color: #f8fafc;
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      padding: 12px 16px;
+      border-radius: 999px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      font-size: 12px;
+      z-index: 2147483647;
+      box-shadow: 0 14px 40px rgba(15, 23, 42, 0.5);
+    }
+    .qa-assist-resume button {
+      border: none;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .qa-assist-resume .resume {
+      background: #22c55e;
+      color: #0b0f14;
+    }
+    .qa-assist-resume .dismiss {
+      background: #1f2937;
+      color: #e2e8f0;
     }
   `;
   document.documentElement.appendChild(style);
@@ -331,6 +365,36 @@
     };
   }
 
+  function showResumePrompt(reason) {
+    if (resumeEl) return;
+    resumeEl = document.createElement("div");
+    resumeEl.className = "qa-assist-resume";
+    resumeEl.innerHTML = `
+      <span>Recording paused${reason ? `: ${reason}` : ""}</span>
+      <button class="resume" type="button">Resume</button>
+      <button class="dismiss" type="button">Dismiss</button>
+    `;
+
+    const resumeBtn = resumeEl.querySelector(".resume");
+    const dismissBtn = resumeEl.querySelector(".dismiss");
+
+    resumeBtn.addEventListener("click", () => {
+      chrome.runtime.sendMessage({ type: "RESUME_REQUEST" });
+      hideResumePrompt();
+    });
+
+    dismissBtn.addEventListener("click", hideResumePrompt);
+
+    document.body.appendChild(resumeEl);
+  }
+
+  function hideResumePrompt() {
+    if (resumeEl) {
+      resumeEl.remove();
+      resumeEl = null;
+    }
+  }
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === "GET_ENV") {
       buildEnvPayload().then((env) => {
@@ -346,6 +410,12 @@
     }
     if (message.type === "MARKER_TOAST") {
       showToast("Marker added");
+    }
+    if (message.type === "SHOW_RESUME_PROMPT") {
+      showResumePrompt(message.reason);
+    }
+    if (message.type === "HIDE_RESUME_PROMPT") {
+      hideResumePrompt();
     }
   });
 

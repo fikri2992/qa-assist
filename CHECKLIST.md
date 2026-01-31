@@ -23,7 +23,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Web playback with timeline + logs + annotations + chat UI.
 - [~] AI per chunk with aggregated report. (ADK agents with filtered inputs)
 - [~] Resumable uploads. (GCS resumable supported)
-- [~] Tab switch + idle handling. (auto-pause with auto-resume)
+- [~] Tab switch + idle handling. (auto-pause with resume prompt)
 - [~] GCS storage + signed URLs. (supported via env)
 - [x] Redis queues. (backend/lib/qa_assist/redis_queue.ex)
 - [ ] Tailwind v4 UI. (plain CSS used)
@@ -65,8 +65,8 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Active-tab video capture.
 - [x] Console + network logs.
 - [x] Interaction capture + DOM context.
-- [~] Idle detection (auto-stop). (auto-resume)
-- [~] Tab switch handling (auto-stop). (auto-resume)
+- [~] Idle detection (auto-stop). (resume prompt)
+- [~] Tab switch handling (auto-stop). (resume prompt)
 - [x] Markers + annotations overlay.
 - [x] Session list stored locally. (popup syncs list)
 
