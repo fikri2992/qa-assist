@@ -88,11 +88,12 @@ async function createSession(tab, env) {
       metadata: {
         url: tab.url,
         title: tab.title,
-        userAgent: navigator.userAgent,
+        userAgent: env?.userAgent || navigator.userAgent,
         viewport: env?.viewport,
         screen: env?.screen,
         platform: env?.platform,
-        language: env?.language
+        language: env?.language,
+        userAgentData: env?.userAgentData
       }
     })
   });
@@ -254,7 +255,8 @@ async function startRecording(apiBaseOverride) {
       screen: env?.screen,
       platform: env?.platform,
       language: env?.language,
-      userAgent: env?.userAgent || navigator.userAgent
+      userAgent: env?.userAgent || navigator.userAgent,
+      userAgentData: env?.userAgentData
     }
   });
 

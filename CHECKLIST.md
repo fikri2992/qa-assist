@@ -8,7 +8,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Capture network logs. (extension/background.js via Debugger API)
 - [x] Capture user interactions. (extension/content.js)
 - [x] Markers/annotations during session. (overlay + shortcuts)
-- [~] Environment metadata (window/screen size, OS, browser version). (viewport/screen/platform added)
+- [~] Environment metadata (window/screen size, OS, browser version). (viewport/screen/platform/userAgentData added)
 - [x] Store session artifacts in backend. (backend/lib/qa_assist/storage/local.ex)
 - [~] AI analysis per chunk. (stub only)
 - [~] Aggregated report after session end. (summary exists, not gated on session end)

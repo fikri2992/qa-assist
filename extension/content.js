@@ -292,29 +292,51 @@
     setTimeout(() => toast.remove(), 2500);
   }
 
+  async function getUserAgentData() {
+    if (!navigator.userAgentData || !navigator.userAgentData.getHighEntropyValues) {
+      return null;
+    }
+    try {
+      return await navigator.userAgentData.getHighEntropyValues([
+        "architecture",
+        "model",
+        "platform",
+        "platformVersion",
+        "uaFullVersion"
+      ]);
+    } catch {
+      return null;
+    }
+  }
+
+  async function buildEnvPayload() {
+    const userAgentData = await getUserAgentData();
+    return {
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio
+      },
+      screen: {
+        width: window.screen.width,
+        height: window.screen.height,
+        availWidth: window.screen.availWidth,
+        availHeight: window.screen.availHeight,
+        colorDepth: window.screen.colorDepth
+      },
+      platform: navigator.platform,
+      language: navigator.language,
+      userAgent: navigator.userAgent,
+      userAgentData
+    };
+  }
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message.type === "GET_ENV") {
-      sendResponse({
-        ok: true,
-        env: {
-          viewport: {
-            width: window.innerWidth,
-            height: window.innerHeight,
-            devicePixelRatio: window.devicePixelRatio
-          },
-          screen: {
-            width: window.screen.width,
-            height: window.screen.height,
-            availWidth: window.screen.availWidth,
-            availHeight: window.screen.availHeight,
-            colorDepth: window.screen.colorDepth
-          },
-          platform: navigator.platform,
-          language: navigator.language,
-          userAgent: navigator.userAgent
-        }
+      buildEnvPayload().then((env) => {
+        sendResponse({ ok: true, env });
       });
-      return;
+      return true;
     }
     if (message.type === "OPEN_ANNOTATION") {
       openAnnotation();
