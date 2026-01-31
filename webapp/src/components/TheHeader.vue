@@ -3,12 +3,10 @@ import { useAppStore } from "../stores/app";
 import { useSessionsStore } from "../stores/sessions";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
-import Button from "primevue/button";
-import Tag from "primevue/tag";
 
 const appStore = useAppStore();
 const sessionsStore = useSessionsStore();
-
+const { theme } = storeToRefs(appStore);
 const { currentSession } = storeToRefs(sessionsStore);
 
 const sessionTitle = computed(() => {
@@ -22,42 +20,35 @@ const sessionMeta = computed(() => {
   return `Started ${date} · ${currentSession.value.chunks?.length || 0} chunks`;
 });
 
-const statusSeverity = computed(() => {
+const statusClass = computed(() => {
   const status = currentSession.value?.status;
   if (status === "completed") return "success";
-  if (status === "failed") return "danger";
+  if (status === "failed") return "error";
   if (status === "recording") return "info";
-  return "secondary";
+  return "default";
 });
+
+const themeIcon = computed(() => theme.value === "dark" ? "pi-sun" : "pi-moon");
 </script>
 
 <template>
   <header class="top-bar">
     <div class="session-info">
       <h1 class="session-title">{{ sessionTitle }}</h1>
-      <span class="session-meta">{{ sessionMeta }}</span>
+      <span v-if="sessionMeta" class="session-meta">{{ sessionMeta }}</span>
     </div>
-    <div class="session-actions">
-      <Tag
-        v-if="currentSession"
-        :value="currentSession.status"
-        :severity="statusSeverity"
-      />
-      <Button
-        icon="pi pi-moon"
-        text
-        rounded
-        severity="secondary"
-        @click="appStore.toggleTheme"
-        aria-label="Toggle theme"
-      />
-      <Button
-        icon="pi pi-sparkles"
-        label="Assistant"
-        outlined
-        size="small"
-        @click="appStore.toggleAssistant"
-      />
+    <div class="header-actions">
+      <span v-if="currentSession" class="status-badge" :class="statusClass">
+        <span class="status-dot"></span>
+        {{ currentSession.status }}
+      </span>
+      <button class="icon-btn" :title="theme === 'dark' ? 'Light mode' : 'Dark mode'" @click="appStore.toggleTheme">
+        <i :class="['pi', themeIcon]"></i>
+      </button>
+      <button class="assistant-btn" @click="appStore.toggleAssistant">
+        <i class="pi pi-sparkles"></i>
+        <span>Assistant</span>
+      </button>
     </div>
   </header>
 </template>
@@ -71,6 +62,7 @@ const statusSeverity = computed(() => {
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
   gap: var(--space-4);
+  min-height: 60px;
 }
 
 .session-info {
@@ -85,6 +77,7 @@ const statusSeverity = computed(() => {
   font-size: 16px;
   font-weight: 600;
   white-space: nowrap;
+  color: var(--text-primary);
 }
 
 .session-meta {
@@ -95,9 +88,110 @@ const statusSeverity = computed(() => {
   text-overflow: ellipsis;
 }
 
-.session-actions {
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.status-badge {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: capitalize;
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.status-badge.success {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.status-badge.success .status-dot {
+  background: #22c55e;
+}
+
+.status-badge.error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.status-badge.error .status-dot {
+  background: #ef4444;
+}
+
+.status-badge.info {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.status-badge.info .status-dot {
+  background: #3b82f6;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.icon-btn i {
+  font-size: 16px;
+}
+
+.assistant-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent) 0%, #f59e0b 100%);
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.assistant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
+.assistant-btn i {
+  font-size: 14px;
 }
 </style>

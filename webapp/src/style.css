@@ -154,8 +154,18 @@ body {
 }
 
 .p-card {
-  background: var(--bg-surface);
+  background: var(--bg-base);
   border: 1px solid var(--border-subtle);
+  box-shadow: none;
+}
+
+.p-card .p-card-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.p-card .p-card-content {
+  padding-top: 0;
 }
 
 .p-drawer {
@@ -175,6 +185,51 @@ body {
   background: var(--bg-surface);
 }
 
+.p-datatable .p-datatable-thead > tr > th {
+  background: var(--bg-elevated);
+  border-color: var(--border-subtle);
+}
+
+.p-datatable .p-datatable-tbody > tr {
+  background: var(--bg-base);
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+  border-color: var(--border-subtle);
+}
+
 .p-message {
   margin: 0;
+}
+
+.p-tag {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.p-accordion-header-link {
+  background: var(--bg-base) !important;
+  border-color: var(--border-subtle) !important;
+}
+
+.p-accordion-content {
+  background: var(--bg-surface);
+  border-color: var(--border-subtle);
+}
+
+.p-tablist {
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.p-tab {
+  color: var(--text-secondary);
+}
+
+.p-tab.p-tab-active {
+  color: var(--accent);
+}
+
+.p-tabpanel {
+  padding: var(--space-5);
 }

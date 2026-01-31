@@ -1,60 +1,163 @@
 <script setup>
 import { useSessionsStore } from "../stores/sessions";
 import { storeToRefs } from "pinia";
-import ProgressSpinner from "primevue/progressspinner";
 
 const sessionsStore = useSessionsStore();
 const { sessions, loading } = storeToRefs(sessionsStore);
 </script>
 
 <template>
-  <div class="empty-state">
-    <ProgressSpinner v-if="loading" />
-    <template v-else>
-      <i class="pi pi-box empty-icon"></i>
-      <h2>Welcome to QA Assist</h2>
-      <p>Load sessions from the sidebar to get started.</p>
-      <p v-if="sessions.length" class="hint-text">
-        {{ sessions.length }} session(s) available. Select one to view details.
-      </p>
-    </template>
+  <div class="welcome-page">
+    <div class="welcome-content">
+      <div v-if="loading" class="loading-state">
+        <i class="pi pi-spin pi-spinner"></i>
+        <span>Loading sessions...</span>
+      </div>
+      <template v-else>
+        <div class="welcome-icon">
+          <i class="pi pi-box"></i>
+        </div>
+        <h1>Welcome to QA Assist</h1>
+        <p class="welcome-desc">
+          Capture, annotate, and analyze your QA sessions with AI-powered insights.
+        </p>
+        
+        <div class="features">
+          <div class="feature">
+            <i class="pi pi-video"></i>
+            <span>Session Recording</span>
+          </div>
+          <div class="feature">
+            <i class="pi pi-chart-bar"></i>
+            <span>AI Analysis</span>
+          </div>
+          <div class="feature">
+            <i class="pi pi-comments"></i>
+            <span>Smart Assistant</span>
+          </div>
+        </div>
+
+        <p v-if="sessions.length" class="session-hint">
+          <i class="pi pi-check-circle"></i>
+          {{ sessions.length }} session(s) available. Select one from the sidebar.
+        </p>
+        <p v-else class="session-hint muted">
+          <i class="pi pi-arrow-left"></i>
+          Enter your API details and load sessions to get started.
+        </p>
+      </template>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.empty-state {
+.welcome-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: var(--space-6);
+  background: var(--bg-base);
+}
+
+.welcome-content {
+  text-align: center;
+  max-width: 480px;
+}
+
+.loading-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 400px;
-  text-align: center;
-  color: var(--text-secondary);
-  padding: var(--space-6);
+  gap: var(--space-3);
+  color: var(--text-muted);
 }
 
-.empty-icon {
-  font-size: 64px;
+.loading-state i {
+  font-size: 32px;
   color: var(--accent);
-  margin-bottom: var(--space-4);
-  opacity: 0.4;
 }
 
-.empty-state h2 {
-  margin: 0 0 var(--space-2);
-  font-size: 24px;
-  font-weight: 600;
+.welcome-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--accent) 0%, #f59e0b 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto var(--space-5);
+  box-shadow: 0 8px 32px rgba(249, 115, 22, 0.25);
+}
+
+.welcome-icon i {
+  font-size: 36px;
+  color: white;
+}
+
+.welcome-content h1 {
+  margin: 0 0 var(--space-3);
+  font-size: 28px;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
-.empty-state p {
-  margin: 0;
-  font-size: 14px;
+.welcome-desc {
+  margin: 0 0 var(--space-6);
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
 }
 
-.hint-text {
-  margin-top: var(--space-4) !important;
+.features {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.feature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  min-width: 120px;
+}
+
+.feature i {
+  font-size: 24px;
+  color: var(--accent);
+}
+
+.feature span {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.session-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 10px;
+  font-size: 13px;
+  color: #22c55e;
+}
+
+.session-hint.muted {
+  background: var(--bg-surface);
   color: var(--text-muted);
+}
+
+.session-hint i {
+  font-size: 16px;
 }
 </style>
