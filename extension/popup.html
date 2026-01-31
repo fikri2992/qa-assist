@@ -6,49 +6,49 @@
     <link rel="stylesheet" href="styles.css" />
     <title>QA Assist</title>
   </head>
-  <body class="bg-[#1a1d23] text-[#e8eaed] font-[Inter] text-[13px]">
-    <div class="p-5 space-y-4 min-w-[320px]">
-      <header class="flex items-center justify-between border-b border-white/5 pb-4">
-        <div class="flex items-center gap-3">
-          <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-[#6b9fff]/20 to-[#6b9fff]/40 flex items-center justify-center">
-            <span class="h-3.5 w-3.5 rounded-full bg-[#6b9fff]"></span>
+  <body class="popup-shell">
+    <div class="popup-panel">
+      <header class="popup-header">
+        <div class="popup-brand">
+          <div class="logo-orb">
+            <span class="logo-core"></span>
           </div>
           <div>
-            <div class="text-[15px] font-semibold">QA Assist</div>
-            <div class="text-[11px] text-[#7d8590]">Field log console</div>
+            <div class="brand-title">QA Assist</div>
+            <div class="brand-subtitle">Field log console</div>
           </div>
         </div>
-        <div id="status" data-status="idle" class="rounded-md bg-[#22262e] px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-[#7d8590]">Idle</div>
+        <div id="status" data-status="idle" class="status-pill">Idle</div>
       </header>
 
-      <section class="space-y-2">
-        <div class="text-[11px] uppercase tracking-[0.2em] text-[#7d8590]">Connection</div>
-        <input id="apiBase" type="text" placeholder="http://localhost:4000/api" class="w-full rounded-lg border border-white/10 bg-[#22262e] px-3 py-2 font-mono text-[12px] text-[#e8eaed]" />
+      <section class="panel-block">
+        <div class="section-label">Connection</div>
+        <input id="apiBase" type="text" placeholder="http://localhost:4000/api" class="field-input" />
       </section>
 
-      <section class="space-y-2">
-        <div class="text-[11px] uppercase tracking-[0.2em] text-[#7d8590]">Session</div>
+      <section class="panel-block">
+        <div class="section-label">Session</div>
         <div class="grid grid-cols-2 gap-2">
-          <button id="startBtn" class="rounded-lg bg-[#6b9fff] py-2 text-sm font-semibold text-white">Start</button>
-          <button id="stopBtn" class="rounded-lg border border-white/10 bg-[#22262e] py-2 text-sm font-semibold text-[#b4b9c1]">Stop</button>
+          <button id="startBtn" class="primary-btn">Start</button>
+          <button id="stopBtn" class="ghost-btn">Stop</button>
         </div>
       </section>
 
-      <section class="space-y-2">
-        <div class="text-[11px] uppercase tracking-[0.2em] text-[#7d8590]">Shortcuts</div>
-        <div class="flex items-center justify-between text-[#b4b9c1]">
+      <section class="panel-block">
+        <div class="section-label">Shortcuts</div>
+        <div class="shortcut-row">
           <span>Marker</span>
-          <code class="rounded bg-[#22262e] px-2 py-1 text-[11px] text-[#7d8590]">Ctrl+Shift+M</code>
+          <code class="shortcut-chip">Ctrl+Shift+M</code>
         </div>
-        <div class="flex items-center justify-between text-[#b4b9c1]">
+        <div class="shortcut-row">
           <span>Annotate</span>
-          <code class="rounded bg-[#22262e] px-2 py-1 text-[11px] text-[#7d8590]">Ctrl+Shift+K</code>
+          <code class="shortcut-chip">Ctrl+Shift+K</code>
         </div>
       </section>
 
-      <section class="space-y-2">
-        <div class="text-[11px] uppercase tracking-[0.2em] text-[#7d8590]">Recent sessions</div>
-        <div id="sessionList" class="space-y-2"></div>
+      <section class="panel-block">
+        <div class="section-label">Recent sessions</div>
+        <div id="sessionList" class="session-list"></div>
       </section>
     </div>
 

@@ -6,12 +6,12 @@
     <title>QA Assist</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="min-h-screen bg-[radial-gradient(circle_at_top,_#18202d_0%,_#0b0f14_52%,_#070a0f_100%)] text-[#f8f5ef]">
+  <body class="min-h-screen theme-console text-[#e9eef7]">
     <div class="pointer-events-none fixed inset-0 opacity-10 mix-blend-soft-light" style="background-image:url('data:image/svg+xml,%3Csvg viewBox=&quot;0 0 300 300&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cfilter id=&quot;n&quot;%3E%3CfeTurbulence type=&quot;fractalNoise&quot; baseFrequency=&quot;0.9&quot; numOctaves=&quot;3&quot; stitchTiles=&quot;stitch&quot;/%3E%3C/filter%3E%3Crect width=&quot;300&quot; height=&quot;300&quot; filter=&quot;url(%23n)&quot; opacity=&quot;0.6&quot;/%3E%3C/svg%3E');"></div>
 
     <header class="grid gap-6 px-10 pb-5 pt-8 md:grid-cols-[1.2fr_1fr]">
       <div class="flex items-start gap-4">
-        <div class="rounded-full bg-[#f97316] px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-[#0b0f14]">QA Assist</div>
+        <div class="brand-pill">QA Assist</div>
         <div>
           <h1 class="font-[Fraunces] text-3xl md:text-4xl">Exploratory Session Atlas</h1>
           <p class="mt-2 max-w-xl text-sm text-[#a3aab7]">
@@ -22,43 +22,43 @@
       <div class="grid gap-3">
         <label class="text-[11px] uppercase tracking-[0.2em] text-[#a3aab7]">
           API base
-          <input id="apiBase" type="text" placeholder="http://localhost:4000/api" class="mt-2 w-full rounded-xl border border-white/10 bg-[#141a24] px-3 py-2 font-mono text-sm text-[#f8f5ef]" />
+          <input id="apiBase" type="text" placeholder="http://localhost:4000/api" class="mt-2 w-full rounded-xl border border-white/10 bg-[#121826] px-3 py-2 font-mono text-sm text-[#e9eef7]" />
         </label>
         <label class="text-[11px] uppercase tracking-[0.2em] text-[#a3aab7]">
           Device ID
-          <input id="deviceId" type="text" placeholder="device uuid" class="mt-2 w-full rounded-xl border border-white/10 bg-[#141a24] px-3 py-2 font-mono text-sm text-[#f8f5ef]" />
+          <input id="deviceId" type="text" placeholder="device uuid" class="mt-2 w-full rounded-xl border border-white/10 bg-[#121826] px-3 py-2 font-mono text-sm text-[#e9eef7]" />
         </label>
-        <button id="loadSessions" class="rounded-xl bg-[#f97316] px-4 py-3 text-sm font-semibold text-[#0b0f14] shadow-[0_10px_30px_rgba(249,115,22,0.35)]">
+        <button id="loadSessions" class="accent-button">
           Load sessions
         </button>
       </div>
     </header>
 
     <main class="grid gap-5 px-10 pb-10 md:grid-cols-[280px_1fr]">
-      <aside class="rounded-2xl border border-white/10 bg-[#111827] p-4 shadow-[0_24px_60px_rgba(5,9,18,0.45)]">
+      <aside class="panel p-4">
         <div class="flex items-center justify-between">
           <h2 class="font-[Fraunces] text-lg">Sessions</h2>
-          <span class="rounded-full border border-[#f97316]/35 bg-[#f97316]/20 px-3 py-1 text-[11px] font-mono text-[#fdba74]">device scoped</span>
+          <span class="accent-chip">device scoped</span>
         </div>
         <ul id="sessionList" class="mt-4 grid gap-3 text-sm font-mono"></ul>
       </aside>
 
       <section class="grid gap-4">
-        <div class="rounded-2xl border border-white/10 bg-[#111827] p-4 shadow-[0_24px_60px_rgba(5,9,18,0.45)]">
+        <div class="panel p-4">
           <div class="flex items-center justify-between">
             <div>
               <h2 id="sessionTitle" class="font-[Fraunces] text-lg">Select a session</h2>
               <div id="sessionMeta" class="text-xs font-mono text-[#a3aab7]"></div>
             </div>
-            <div id="sessionStatus" class="rounded-full border border-white/10 bg-[#0f172a]/70 px-3 py-1 text-[11px] uppercase tracking-[0.2em]"></div>
+            <div id="sessionStatus" class="status-pill"></div>
           </div>
 
-          <div class="mt-4 rounded-xl border border-white/10 bg-[#0c111b] p-3">
+          <div class="mt-4 panel-surface p-3">
             <div class="relative">
               <video id="videoPlayer" controls playsinline class="w-full rounded-xl bg-[#05070c]"></video>
               <div id="annotationOverlay" class="pointer-events-none absolute inset-0"></div>
             </div>
-            <div class="relative mt-3 h-12 overflow-hidden rounded-xl border border-white/10 bg-[#0a0f18]">
+            <div class="relative mt-3 h-12 overflow-hidden rounded-xl border border-white/10 bg-[#0a1018]">
               <div id="timelineTrack" class="flex h-full"></div>
               <div id="timelinePins" class="absolute inset-0"></div>
             </div>
@@ -67,42 +67,42 @@
         </div>
 
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div class="rounded-2xl border border-white/10 bg-[#111827] p-4 shadow-[0_24px_60px_rgba(5,9,18,0.45)]">
+          <div class="panel p-4">
             <div class="flex items-center justify-between">
               <h3 class="font-[Fraunces]">Annotations</h3>
-              <span id="annotationCount" class="rounded-full border border-[#f97316]/35 bg-[#f97316]/20 px-3 py-1 text-[11px] font-mono text-[#fdba74]">0</span>
+              <span id="annotationCount" class="accent-chip">0</span>
             </div>
             <div id="annotationList" class="mt-3 grid gap-3"></div>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-[#111827] p-4 shadow-[0_24px_60px_rgba(5,9,18,0.45)]">
+          <div class="panel p-4">
             <div class="flex items-center justify-between">
               <h3 class="font-[Fraunces]">Markers</h3>
-              <span id="markerCount" class="rounded-full border border-[#f97316]/35 bg-[#f97316]/20 px-3 py-1 text-[11px] font-mono text-[#fdba74]">0</span>
+              <span id="markerCount" class="accent-chip">0</span>
             </div>
             <div id="markerList" class="mt-3 grid gap-3"></div>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-[#111827] p-4 shadow-[0_24px_60px_rgba(5,9,18,0.45)]">
+          <div class="panel p-4">
             <div class="flex items-center justify-between">
               <h3 class="font-[Fraunces]">Logs</h3>
-              <span class="rounded-full border border-[#f97316]/35 bg-[#f97316]/20 px-3 py-1 text-[11px] font-mono text-[#fdba74]">console + network</span>
+              <span class="accent-chip">console + network</span>
             </div>
             <pre id="logPane" class="mt-3 whitespace-pre-wrap text-xs text-[#cbd5f5]"></pre>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-[#111827] p-4 shadow-[0_24px_60px_rgba(5,9,18,0.45)]">
+          <div class="panel p-4">
             <div class="flex items-center justify-between">
               <h3 class="font-[Fraunces]">Interactions</h3>
-              <span class="rounded-full border border-[#f97316]/35 bg-[#f97316]/20 px-3 py-1 text-[11px] font-mono text-[#fdba74]">trail</span>
+              <span class="accent-chip">trail</span>
             </div>
             <div id="eventPane" class="mt-3 grid gap-2 text-xs font-mono"></div>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-[#111827] p-4 shadow-[0_24px_60px_rgba(5,9,18,0.45)]">
+          <div class="panel p-4">
             <div class="flex items-center justify-between">
               <h3 class="font-[Fraunces]">Analysis</h3>
-              <span id="analysisStatus" class="rounded-full border border-[#f97316]/35 bg-[#f97316]/20 px-3 py-1 text-[11px] font-mono text-[#fdba74]">pending</span>
+              <span id="analysisStatus" class="accent-chip">pending</span>
             </div>
             <div id="analysisPane" class="mt-3 grid gap-3">
               <div id="analysisSummary" class="text-sm text-[#e2e8f0]"></div>
@@ -112,23 +112,23 @@
             </div>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-[#111827] p-4 shadow-[0_24px_60px_rgba(5,9,18,0.45)]">
+          <div class="panel p-4">
             <div class="flex items-center justify-between">
               <h3 class="font-[Fraunces]">Autonomy Timeline</h3>
-              <span class="rounded-full border border-[#f97316]/35 bg-[#f97316]/20 px-3 py-1 text-[11px] font-mono text-[#fdba74]">agents</span>
+              <span class="accent-chip">agents</span>
             </div>
             <div id="autonomyList" class="mt-3 grid gap-2 text-xs"></div>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-[#111827] p-4 shadow-[0_24px_60px_rgba(5,9,18,0.45)]">
+          <div class="panel p-4">
             <div class="flex items-center justify-between">
               <h3 class="font-[Fraunces]">Environment</h3>
-              <span class="rounded-full border border-[#f97316]/35 bg-[#f97316]/20 px-3 py-1 text-[11px] font-mono text-[#fdba74]">device</span>
+              <span class="accent-chip">device</span>
             </div>
             <div id="envPane" class="mt-3 grid gap-2 text-xs font-mono"></div>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-[#111827] p-4 shadow-[0_24px_60px_rgba(5,9,18,0.45)]">
+          <div class="panel p-4">
             <div class="chat-shell">
               <div class="chat-header">
                 <div class="chat-app">
@@ -172,10 +172,10 @@
             </div>
           </div>
 
-          <div class="rounded-2xl border border-white/10 bg-[#111827] p-4 shadow-[0_24px_60px_rgba(5,9,18,0.45)]">
+          <div class="panel p-4">
             <div class="flex items-center justify-between">
               <h3 class="font-[Fraunces]">Artifacts</h3>
-              <span class="rounded-full border border-[#f97316]/35 bg-[#f97316]/20 px-3 py-1 text-[11px] font-mono text-[#fdba74]">export</span>
+              <span class="accent-chip">export</span>
             </div>
             <div id="artifactList" class="mt-3 grid gap-2"></div>
           </div>

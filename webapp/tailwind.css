@@ -25,6 +25,76 @@ body {
   font-family: "Work Sans", system-ui, sans-serif;
 }
 
+.theme-console {
+  background: radial-gradient(circle at top, #18202d 0%, #0c1118 50%, #070a0f 100%);
+  color: #e9eef7;
+}
+
+.brand-pill {
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: linear-gradient(120deg, rgba(255, 122, 26, 0.9), rgba(255, 166, 74, 0.7));
+  color: #0b0f14;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  box-shadow: 0 8px 24px rgba(255, 122, 26, 0.35);
+}
+
+.accent-button {
+  border-radius: 14px;
+  background: linear-gradient(120deg, #ff7a1a 0%, #ffb347 100%);
+  color: #0b0f14;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 12px 16px;
+  box-shadow: 0 12px 30px rgba(255, 122, 26, 0.3);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.accent-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 40px rgba(255, 122, 26, 0.4);
+}
+
+.accent-chip {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 122, 26, 0.35);
+  background: rgba(255, 122, 26, 0.15);
+  color: #ffba7a;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: "IBM Plex Mono", monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.status-pill {
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.7);
+  padding: 4px 12px;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #cbd5f5;
+}
+
+.panel {
+  border-radius: 22px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: linear-gradient(160deg, rgba(17, 24, 39, 0.95), rgba(8, 11, 18, 0.98));
+  box-shadow: 0 24px 60px rgba(4, 6, 12, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.panel-surface {
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: linear-gradient(160deg, rgba(12, 17, 27, 0.9), rgba(8, 10, 16, 0.95));
+}
+
 .font-\[Fraunces\] {
   font-family: "Fraunces", serif;
 }
@@ -141,7 +211,7 @@ body {
 .event-item {
   padding: 10px;
   border-radius: 12px;
-  background: #0b1220;
+  background: #0c1118;
   border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
@@ -161,7 +231,7 @@ body {
 .autonomy-item {
   padding: 12px;
   border-radius: 12px;
-  background: #0b1322;
+  background: #0c1118;
   border: 1px solid rgba(148, 163, 184, 0.2);
   font-size: 12px;
 }
@@ -174,9 +244,9 @@ body {
 }
 
 .chat-shell {
-  background: #1b1d21;
+  background: #0c1118;
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 14px;
   display: grid;
   gap: 10px;
@@ -193,7 +263,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #121418;
+  background: #0f141c;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   padding: 6px 12px;
@@ -205,8 +275,8 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: #f59e0b;
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+  background: #ffb347;
+  box-shadow: 0 0 10px rgba(255, 179, 71, 0.6);
   display: inline-block;
 }
 
@@ -255,7 +325,7 @@ body {
 }
 
 .chat-input {
-  background: #121418;
+  background: #0f141c;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 8px 12px;
