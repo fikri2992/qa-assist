@@ -18,6 +18,12 @@ const markerList = document.getElementById("markerList");
 const annotationCount = document.getElementById("annotationCount");
 const markerCount = document.getElementById("markerCount");
 const artifactList = document.getElementById("artifactList");
+const chatList = document.getElementById("chatList");
+const chatInput = document.getElementById("chatInput");
+const chatSend = document.getElementById("chatSend");
+const chatStop = document.getElementById("chatStop");
+const chatMode = document.getElementById("chatMode");
+const chatModel = document.getElementById("chatModel");
 
 const storedApiBase = localStorage.getItem("qa_api_base") || "http://localhost:4000/api";
 const storedDeviceId = localStorage.getItem("qa_device_id") || "";
@@ -29,6 +35,8 @@ let currentChunks = [];
 let currentChunkIndex = 0;
 let currentEvents = [];
 let currentSession = null;
+let currentApiBase = storedApiBase;
+let chatAbort = null;
 
 function setStatus(text) {
   sessionStatus.textContent = text || "";
@@ -58,6 +66,7 @@ async function loadSessions() {
   }
 
   localStorage.setItem("qa_api_base", apiBase);
+  currentApiBase = apiBase;
   localStorage.setItem("qa_device_id", deviceId);
 
   sessionList.innerHTML = "";
@@ -105,6 +114,7 @@ async function selectSession(sessionId, apiBase, selectedItem) {
     const orderedEvents = events.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
 
     currentSession = session;
+    currentApiBase = apiBase;
     currentChunks = session.chunks.slice().sort((a, b) => a.idx - b.idx);
     currentChunkIndex = 0;
     currentEvents = orderedEvents;
@@ -118,6 +128,7 @@ async function selectSession(sessionId, apiBase, selectedItem) {
     renderAnnotations(orderedEvents);
     renderAnalysis(analysis);
     renderArtifacts(artifacts, apiBase);
+    renderChatIntro();
   } catch (err) {
     sessionMeta.textContent = err.message;
     setStatus("error");
@@ -355,6 +366,65 @@ function renderAnalysis(analysis) {
   analysisPane.textContent = JSON.stringify(analysis, null, 2);
 }
 
+function renderChatIntro() {
+  chatList.innerHTML = "";
+  if (!currentSession) return;
+  addChatMessage("assistant", "Ask me about this session's logs, UI issues, or repro steps.");
+}
+
+function addChatMessage(role, text) {
+  const bubble = document.createElement("div");
+  bubble.className = `chat-bubble ${role}`;
+  bubble.textContent = text;
+  chatList.appendChild(bubble);
+  chatList.scrollTop = chatList.scrollHeight;
+}
+
+function setChatBusy(isBusy) {
+  chatSend.disabled = isBusy;
+  chatStop.disabled = !isBusy;
+  chatSend.textContent = isBusy ? "..." : "Send";
+}
+
+async function sendChatMessage() {
+  const message = chatInput.value.trim();
+  if (!message) return;
+  if (!currentSession) {
+    addChatMessage("assistant", "Select a session first.");
+    return;
+  }
+
+  addChatMessage("user", message);
+  chatInput.value = "";
+  setChatBusy(true);
+
+  chatAbort = new AbortController();
+  try {
+    const res = await fetch(`${currentApiBase}/sessions/${currentSession.id}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message,
+        mode: chatMode.value,
+        model: chatModel.value
+      }),
+      signal: chatAbort.signal
+    });
+    if (!res.ok) {
+      throw new Error(`Chat failed: ${res.status}`);
+    }
+    const data = await res.json();
+    addChatMessage("assistant", data.reply || "No reply.");
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      addChatMessage("assistant", err.message || "Chat failed.");
+    }
+  } finally {
+    setChatBusy(false);
+    chatAbort = null;
+  }
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -374,3 +444,16 @@ videoPlayer.addEventListener("loadedmetadata", renderOverlay);
 window.addEventListener("resize", renderOverlay);
 
 loadSessionsBtn.addEventListener("click", loadSessions);
+
+chatSend.addEventListener("click", sendChatMessage);
+chatInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    sendChatMessage();
+  }
+});
+chatStop.addEventListener("click", () => {
+  if (chatAbort) {
+    chatAbort.abort();
+  }
+});
+setChatBusy(false);

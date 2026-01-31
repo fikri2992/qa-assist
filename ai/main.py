@@ -25,6 +25,15 @@ class AggregateRequest(BaseModel):
     chunk_reports: List[Dict[str, Any]] = Field(default_factory=list)
 
 
+class ChatRequest(BaseModel):
+    session: Dict[str, Any]
+    analysis: Dict[str, Any] = Field(default_factory=dict)
+    events: List[Dict[str, Any]] = Field(default_factory=list)
+    message: str
+    mode: str = "investigate"
+    model: str = "default"
+
+
 @app.get("/health")
 def health() -> Dict[str, str]:
     return {"status": "ok"}
@@ -38,3 +47,8 @@ def analyze(payload: AnalyzeRequest) -> Dict[str, Any]:
 @app.post("/aggregate")
 def aggregate(payload: AggregateRequest) -> Dict[str, Any]:
     return orchestrator.aggregate_session(payload.session, payload.chunk_reports)
+
+
+@app.post("/chat")
+def chat(payload: ChatRequest) -> Dict[str, Any]:
+    return orchestrator.chat(payload.session, payload.analysis, payload.events, payload.message, payload.mode, payload.model)

@@ -178,3 +178,39 @@ class Orchestrator:
         if self.adk:
             return self.adk.aggregate_session(session, chunk_reports)
         return self.stub.aggregate_session(session, chunk_reports)
+
+    def chat(
+        self,
+        session: Dict[str, Any],
+        analysis: Dict[str, Any],
+        events: List[Dict[str, Any]],
+        message: str,
+        mode: str,
+        model: str
+    ) -> Dict[str, Any]:
+        if self.adk:
+            return self.adk.chat(session, analysis, events, message, mode, model)
+        return self._stub_chat(session, analysis, events, message, mode, model)
+
+    def _stub_chat(
+        self,
+        session: Dict[str, Any],
+        analysis: Dict[str, Any],
+        _events: List[Dict[str, Any]],
+        message: str,
+        mode: str,
+        model: str
+    ) -> Dict[str, Any]:
+        summary = analysis.get("summary") if isinstance(analysis, dict) else None
+        response = "ADK is disabled. "
+        if summary:
+            response += f"Latest analysis summary: {summary}"
+        else:
+            response += "No analysis summary available yet."
+        return {
+            "reply": response,
+            "mode": mode,
+            "model": model,
+            "session_id": session.get("id") if isinstance(session, dict) else None,
+            "message": message
+        }

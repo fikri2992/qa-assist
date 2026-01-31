@@ -20,7 +20,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Interaction capture with DOM context. (extension/content.js)
 - [x] Marker input via shortcut + annotation overlay.
 - [~] Persist session list locally and sync to backend. (stored locally)
-- [~] Web playback with timeline + logs + annotations + chat UI. (logs only)
+- [~] Web playback with timeline + logs + annotations + chat UI. (chat + overlays added)
 - [~] AI per chunk with aggregated report. (ADK wired, still basic)
 - [ ] Resumable uploads. (not implemented)
 - [~] Tab switch + idle handling. (auto-stop; no resume/new chunk)
@@ -77,7 +77,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Logs panel (console + network)
 - [~] Interaction trail (raw JSON only)
 - [x] Annotations overlay.
-- [ ] Chat UI.
+- [x] Chat UI.
 - [~] Downloadable repro scripts. (Playwright stub)
 
 ## 08 — AI Orchestration (`plan/08-ai-orchestration.md`)

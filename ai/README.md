@@ -13,6 +13,7 @@ Endpoints:
 - GET /health
 - POST /analyze
 - POST /aggregate
+- POST /chat
 
 Optional env:
 - ADK_ENABLED (default: true when API key is present)

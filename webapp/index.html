@@ -102,6 +102,30 @@
             <pre id="analysisPane"></pre>
           </div>
 
+          <div class="panel chat">
+            <div class="panel-header">
+              <h3>Chat</h3>
+              <div class="chat-selects">
+                <select id="chatMode">
+                  <option value="investigate">Investigate</option>
+                  <option value="summarize">Summarize</option>
+                  <option value="triage">Triage</option>
+                </select>
+                <select id="chatModel">
+                  <option value="default">Auto</option>
+                  <option value="gemini-3-flash">Gemini 3 Flash</option>
+                  <option value="gemini-3-pro-preview">Gemini 3 Pro</option>
+                </select>
+              </div>
+            </div>
+            <div id="chatList" class="chat-list"></div>
+            <div class="chat-controls">
+              <input id="chatInput" type="text" placeholder="Ask about this session..." />
+              <button id="chatSend">Send</button>
+              <button id="chatStop" class="ghost">Stop</button>
+            </div>
+          </div>
+
           <div class="panel artifacts">
             <div class="panel-header">
               <h3>Artifacts</h3>

@@ -33,12 +33,12 @@ class AdkOrchestrator:
         self.user_id = "qa-assist"
         self.session_service = InMemorySessionService()
 
-        text_model = os.getenv("ADK_TEXT_MODEL", "gemini-3-flash")
-        video_model = os.getenv("ADK_VIDEO_MODEL", "gemini-3-pro-preview")
+        self.text_model = os.getenv("ADK_TEXT_MODEL", "gemini-3-flash")
+        self.video_model = os.getenv("ADK_VIDEO_MODEL", "gemini-3-pro-preview")
 
         self.log_agent = LlmAgent(
             name="log_analyst",
-            model=text_model,
+            model=self.text_model,
             instruction=(
                 "You analyze console and network events. Return JSON with keys: "
                 "summary (string), issues (array), evidence (array). "
@@ -48,7 +48,7 @@ class AdkOrchestrator:
         )
         self.video_agent = LlmAgent(
             name="video_analyst",
-            model=video_model,
+            model=self.video_model,
             instruction=(
                 "You analyze recorded UI video for visual/UI/UX issues. "
                 "Return JSON with keys: summary (string), issues (array), evidence (array). "
@@ -57,7 +57,7 @@ class AdkOrchestrator:
         )
         self.repro_agent = LlmAgent(
             name="repro_planner",
-            model=text_model,
+            model=self.text_model,
             instruction=(
                 "You derive reproduction steps from interaction events. "
                 "Return JSON with keys: summary (string), repro_steps (array of strings)."
@@ -65,7 +65,7 @@ class AdkOrchestrator:
         )
         self.synth_agent = LlmAgent(
             name="synthesizer",
-            model=text_model,
+            model=self.text_model,
             instruction=(
                 "You consolidate findings into a short summary and suspected root cause. "
                 "Return JSON with keys: summary (string), suspected_root_cause (string)."
@@ -78,6 +78,17 @@ class AdkOrchestrator:
     def aggregate_session(self, session: Dict[str, Any], chunk_reports: List[Dict[str, Any]]) -> Dict[str, Any]:
         return self._run_sync(self._aggregate_session_async(session, chunk_reports))
 
+    def chat(
+        self,
+        session: Dict[str, Any],
+        analysis: Dict[str, Any],
+        events: List[Dict[str, Any]],
+        message: str,
+        mode: str,
+        model: str
+    ) -> Dict[str, Any]:
+        return self._run_sync(self._chat_async(session, analysis, events, message, mode, model))
+
     async def analyze_chunk_async(
         self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
@@ -87,6 +98,17 @@ class AdkOrchestrator:
         self, session: Dict[str, Any], chunk_reports: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         return await self._aggregate_session_async(session, chunk_reports)
+
+    async def chat_async(
+        self,
+        session: Dict[str, Any],
+        analysis: Dict[str, Any],
+        events: List[Dict[str, Any]],
+        message: str,
+        mode: str,
+        model: str
+    ) -> Dict[str, Any]:
+        return await self._chat_async(session, analysis, events, message, mode, model)
 
     async def _analyze_chunk_async(
         self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]
@@ -156,6 +178,42 @@ class AdkOrchestrator:
             "session_id": session.get("id"),
         }
 
+    async def _chat_async(
+        self,
+        session: Dict[str, Any],
+        analysis: Dict[str, Any],
+        events: List[Dict[str, Any]],
+        message: str,
+        mode: str,
+        model: str
+    ) -> Dict[str, Any]:
+        prompt = {
+            "instruction": "You are a QA exploratory testing assistant. Respond succinctly.",
+            "mode": mode,
+            "user_message": message,
+            "session": session,
+            "analysis": analysis,
+            "events": events[-200:],
+        }
+        agent = LlmAgent(
+            name="qa_chat",
+            model=self._pick_model(model),
+            instruction=(
+                "Answer as a QA assistant. Use the provided session context, analysis, and events. "
+                "Return JSON with keys: reply (string), suggested_next_steps (array of strings)."
+            ),
+        )
+        response_text = await self._run_agent(agent, json.dumps(prompt, ensure_ascii=False))
+        parsed = self._parse_json(response_text)
+        reply = parsed.get("reply") or "No response generated."
+        return {
+            "reply": reply,
+            "suggested_next_steps": parsed.get("suggested_next_steps", []),
+            "mode": mode,
+            "model": self._pick_model(model),
+            "session_id": session.get("id"),
+        }
+
     def _build_payload(self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]:
         video_url = (
             chunk.get("video_url")
@@ -169,6 +227,11 @@ class AdkOrchestrator:
             "events": events,
             "video_url": video_url,
         }
+
+    def _pick_model(self, model: str) -> str:
+        if model and model not in {"default", "auto"}:
+            return model
+        return self.text_model
 
     async def _call_agent(self, agent: LlmAgent, payload: Dict[str, Any], task: str) -> AgentOutput:
         prompt = (
