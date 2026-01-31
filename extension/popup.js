@@ -47,7 +47,7 @@ function capitalize(value) {
 
 function normalizeUrl(value) {
   if (!value) return "";
-  if (!/^[a-z]+:\/\//i.test(value)) {
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(value)) {
     return `http://${value}`;
   }
   return value;
