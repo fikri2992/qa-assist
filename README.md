@@ -40,11 +40,10 @@ GCS_UPLOAD_EXPIRES=900
 
 ### 3) AI service
 ```
-cd ai
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+python -m venv ai/.venv
+.\ai\.venv\Scripts\activate
+pip install -r ai/requirements.txt
+uvicorn ai.app.main:app --reload --port 8000
 ```
 
 ### 4) Chrome extension

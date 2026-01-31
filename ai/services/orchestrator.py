@@ -185,7 +185,7 @@ class Orchestrator:
         self.adk = None
         if _should_use_adk():
             try:
-                from adk_orchestrator import AdkOrchestrator
+                from ai.services.adk_orchestrator import AdkOrchestrator
 
                 self.adk = AdkOrchestrator()
             except Exception:

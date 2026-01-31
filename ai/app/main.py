@@ -1,37 +1,18 @@
 ﻿from __future__ import annotations
 
-from fastapi import FastAPI
-from pydantic import BaseModel, Field
-from typing import Any, Dict, List
-from dotenv import load_dotenv
+from typing import Any, Dict
 
-from orchestrator import Orchestrator
+from dotenv import load_dotenv
+from fastapi import FastAPI
+
+from ai.models.requests import AggregateRequest, AnalyzeRequest, ChatRequest
+from ai.services.orchestrator import Orchestrator
 
 load_dotenv()
 
 app = FastAPI(title="QA Assist AI")
 
 orchestrator = Orchestrator()
-
-
-class AnalyzeRequest(BaseModel):
-    session: Dict[str, Any]
-    chunk: Dict[str, Any]
-    events: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-class AggregateRequest(BaseModel):
-    session: Dict[str, Any]
-    chunk_reports: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-class ChatRequest(BaseModel):
-    session: Dict[str, Any]
-    analysis: Dict[str, Any] = Field(default_factory=dict)
-    events: List[Dict[str, Any]] = Field(default_factory=list)
-    message: str
-    mode: str = "investigate"
-    model: str = "default"
 
 
 @app.get("/health")

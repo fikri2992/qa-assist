@@ -3,10 +3,11 @@
 Run locally:
 
 ```
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
+cd ..
+python -m venv ai/.venv
+.\ai\.venv\Scripts\activate
+pip install -r ai/requirements.txt
+uvicorn ai.app.main:app --reload --port 8000
 ```
 
 Endpoints:
