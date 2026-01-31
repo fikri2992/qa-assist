@@ -16,6 +16,12 @@ Endpoints:
 - POST /aggregate
 - POST /chat
 
+Structure:
+- `ai/app/` FastAPI app + routes
+- `ai/services/` orchestrators + integrations
+- `ai/models/` Pydantic schemas
+- `ai/core/` config/logging utilities
+
 Optional env:
 - ADK_ENABLED (default: true when API key is present)
 - GOOGLE_API_KEY (preferred for ADK)

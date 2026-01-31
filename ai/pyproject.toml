@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qa-assist-ai"
+version = "0.1.0"
+description = "AI service for the QA Assist hackathon project."
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi==0.110.0",
+  "uvicorn==0.29.0",
+  "pydantic==2.6.1",
+  "python-dotenv==1.0.1",
+  "google-generativeai==0.5.4",
+  "google-adk",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["ai/tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "UP"]
