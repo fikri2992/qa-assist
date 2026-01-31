@@ -10,6 +10,10 @@ const chunkList = document.getElementById("chunkList");
 const logPane = document.getElementById("logPane");
 const eventPane = document.getElementById("eventPane");
 const analysisPane = document.getElementById("analysisPane");
+const annotationList = document.getElementById("annotationList");
+const markerList = document.getElementById("markerList");
+const annotationCount = document.getElementById("annotationCount");
+const markerCount = document.getElementById("markerCount");
 
 const storedApiBase = localStorage.getItem("qa_api_base") || "http://localhost:4000/api";
 const storedDeviceId = localStorage.getItem("qa_device_id") || "";
@@ -24,7 +28,7 @@ function setStatus(text) {
 function formatDate(value) {
   if (!value) return "";
   const date = new Date(value);
-  return isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
 async function fetchJson(url) {
@@ -83,7 +87,7 @@ async function selectSession(sessionId, apiBase, selectedItem) {
   try {
     const session = await fetchJson(`${apiBase}/sessions/${sessionId}`);
     const analysis = await fetchJson(`${apiBase}/sessions/${sessionId}/analysis`);
-    const events = await fetchJson(`${apiBase}/sessions/${sessionId}/events?limit=200`);
+    const events = await fetchJson(`${apiBase}/sessions/${sessionId}/events?limit=500`);
 
     sessionMeta.textContent = `Started ${formatDate(session.started_at)} · ${session.chunks.length} chunks`;
     setStatus(session.status);
@@ -92,6 +96,8 @@ async function selectSession(sessionId, apiBase, selectedItem) {
     renderVideo(session.chunks);
     renderEvents(events);
     renderLogs(events);
+    renderMarkers(events);
+    renderAnnotations(events);
     renderAnalysis(analysis);
   } catch (err) {
     sessionMeta.textContent = err.message;
@@ -127,8 +133,61 @@ function renderLogs(events) {
   logPane.textContent = JSON.stringify(logs, null, 2);
 }
 
+function renderMarkers(events) {
+  const markers = events.filter((event) => event.type === "marker");
+  markerCount.textContent = markers.length;
+  markerList.innerHTML = "";
+
+  if (!markers.length) {
+    markerList.innerHTML = "<div class=\"marker-card\">No markers yet.</div>";
+    return;
+  }
+
+  markers.forEach((marker) => {
+    const card = document.createElement("div");
+    card.className = "marker-card";
+    const label = marker.payload?.label || "Marker";
+    card.innerHTML = `
+      <h4>${label}</h4>
+      <div>${formatDate(marker.ts)}</div>
+    `;
+    markerList.appendChild(card);
+  });
+}
+
+function renderAnnotations(events) {
+  const annotations = events.filter((event) => event.type === "annotation");
+  annotationCount.textContent = annotations.length;
+  annotationList.innerHTML = "";
+
+  if (!annotations.length) {
+    annotationList.innerHTML = "<div class=\"annotation-card\">No annotations yet.</div>";
+    return;
+  }
+
+  annotations.forEach((annotation) => {
+    const card = document.createElement("div");
+    card.className = "annotation-card";
+    const text = annotation.payload?.text || "(empty)";
+    card.innerHTML = `
+      <h4>${formatDate(annotation.ts)}</h4>
+      <p>${escapeHtml(text)}</p>
+    `;
+    annotationList.appendChild(card);
+  });
+}
+
 function renderAnalysis(analysis) {
   analysisPane.textContent = JSON.stringify(analysis, null, 2);
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 loadSessionsBtn.addEventListener("click", loadSessions);

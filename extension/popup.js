@@ -10,6 +10,7 @@ chrome.storage.local.get(["qa_api_base", "qa_recording"], (state) => {
 
 function updateStatus(text) {
   statusEl.textContent = text;
+  statusEl.dataset.status = String(text || "").toLowerCase();
 }
 
 startBtn.addEventListener("click", () => {

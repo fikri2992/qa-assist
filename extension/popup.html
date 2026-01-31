@@ -7,18 +7,47 @@
     <title>QA Assist</title>
   </head>
   <body>
-    <div class="card">
-      <h1>QA Assist</h1>
-      <label>
-        API URL
-        <input id="apiBase" type="text" placeholder="http://localhost:4000/api" />
-      </label>
-      <div class="row">
-        <button id="startBtn">Start</button>
-        <button id="stopBtn" class="secondary">Stop</button>
-      </div>
-      <div id="status" class="status">Idle</div>
+    <div class="popup">
+      <header class="header">
+        <div class="logo-block">
+          <div class="logo-ring"></div>
+          <div>
+            <div class="logo">QA Assist</div>
+            <div class="tagline">Field log console</div>
+          </div>
+        </div>
+        <div class="status" id="status" data-status="idle">Idle</div>
+      </header>
+
+      <section class="panel">
+        <div class="panel-title">Connection</div>
+        <label class="field">
+          <span>API URL</span>
+          <input id="apiBase" type="text" placeholder="http://localhost:4000/api" />
+        </label>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Session Controls</div>
+        <div class="actions">
+          <button id="startBtn" class="primary">Start</button>
+          <button id="stopBtn" class="ghost">Stop</button>
+        </div>
+      </section>
+
+      <section class="panel shortcuts">
+        <div class="panel-title">Shortcuts</div>
+        <div class="shortcut-row">
+          <span>Marker</span>
+          <code>Ctrl+Shift+M</code>
+        </div>
+        <div class="shortcut-row">
+          <span>Annotate</span>
+          <code>Ctrl+Shift+K</code>
+        </div>
+      </section>
     </div>
+
     <script src="popup.js"></script>
   </body>
 </html>

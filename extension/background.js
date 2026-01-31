@@ -10,6 +10,7 @@ const state = {
   chunkIndex: 0,
   currentTabId: null,
   lastActivity: Date.now(),
+  lastUrl: null,
   flushTimer: null,
   idleTimer: null,
   eventQueue: []
@@ -195,6 +196,7 @@ async function startRecording(apiBaseOverride) {
 
   state.recording = true;
   state.currentTabId = tab.id;
+  state.lastUrl = tab.url || null;
   state.lastActivity = Date.now();
   await persistState();
 
@@ -263,6 +265,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     handleChunkData(message).then(() => sendResponse({ ok: true }));
     return true;
   }
+  if (message.type === "ANNOTATION_SUBMIT") {
+    enqueueEvent({
+      ts: new Date().toISOString(),
+      type: "annotation",
+      payload: message.payload
+    });
+  }
 });
 
 chrome.debugger.onEvent.addListener((source, method, params) => {
@@ -295,6 +304,16 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   if (!state.recording) return;
   if (activeInfo.tabId !== state.currentTabId) {
     await handleAutoPause("Tab switched");
+  }
+});
+
+chrome.commands.onCommand.addListener(async (command) => {
+  if (!state.recording) return;
+  if (command === "add_marker") {
+    await addMarker();
+  }
+  if (command === "add_annotation") {
+    await openAnnotation();
   }
 });
 
@@ -359,6 +378,38 @@ async function handleChunkData(message) {
 }
 
 loadState();
+
+async function addMarker() {
+  const tab = await getActiveTab();
+  const url = tab?.url || state.lastUrl;
+  enqueueEvent({
+    ts: new Date().toISOString(),
+    type: "marker",
+    payload: { label: "Marker", url }
+  });
+
+  if (tab?.id) {
+    chrome.tabs.sendMessage(tab.id, { type: "MARKER_TOAST" });
+  }
+}
+
+async function openAnnotation() {
+  const tab = await getActiveTab();
+  if (!tab?.id) return;
+  chrome.tabs.sendMessage(tab.id, { type: "OPEN_ANNOTATION" });
+}
+
+async function getActiveTab() {
+  if (state.currentTabId) {
+    try {
+      return await chrome.tabs.get(state.currentTabId);
+    } catch {
+      // fallback to query
+    }
+  }
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab;
+}
 
 async function directUpload(uploadUrl, uploadMethod, uploadHeaders, blob) {
   if (uploadMethod.toUpperCase() === "PUT") {

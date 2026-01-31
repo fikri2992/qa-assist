@@ -29,5 +29,24 @@
       "js": ["content.js"],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "commands": {
+    "add_marker": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+M",
+        "mac": "Command+Shift+M"
+      },
+      "description": "Add a marker"
+    },
+    "add_annotation": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+K",
+        "mac": "Command+Shift+K"
+      },
+      "description": "Add an annotation"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com"
+  }
 }
