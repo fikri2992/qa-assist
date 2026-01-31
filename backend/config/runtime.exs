@@ -23,6 +23,21 @@ end
 config :qa_assist, QaAssistWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+storage_backend = System.get_env("STORAGE_BACKEND", "local")
+
+if storage_backend == "gcs" do
+  config :qa_assist, :storage,
+    backend: QaAssist.Storage.Gcs,
+    gcs: [
+      bucket: System.get_env("GCS_BUCKET"),
+      client_email: System.get_env("GCS_SIGNING_EMAIL"),
+      private_key: System.get_env("GCS_SIGNING_PRIVATE_KEY"),
+      expires: String.to_integer(System.get_env("GCS_UPLOAD_EXPIRES", "900"))
+    ]
+else
+  config :qa_assist, :storage, backend: QaAssist.Storage.Local
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

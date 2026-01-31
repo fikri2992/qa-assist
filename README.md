@@ -27,6 +27,17 @@ mix phx.server
 
 API base URL: `http://localhost:4000/api`
 
+### Optional: GCS direct uploads
+Set environment variables before starting the backend:
+
+```
+STORAGE_BACKEND=gcs
+GCS_BUCKET=your-bucket
+GCS_SIGNING_EMAIL=service-account@project.iam.gserviceaccount.com
+GCS_SIGNING_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GCS_UPLOAD_EXPIRES=900
+```
+
 ### 3) AI service
 ```
 cd ai

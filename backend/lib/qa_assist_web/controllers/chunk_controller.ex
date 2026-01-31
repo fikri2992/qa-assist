@@ -13,13 +13,12 @@ defmodule QaAssistWeb.ChunkController do
       _session ->
         case Recording.create_chunk(session_id, params) do
           {:ok, chunk} ->
-            upload_url = QaAssistWeb.Endpoint.url() <> ~p"/api/chunks/#{chunk.id}/upload"
+            upload_info = Storage.prepare_upload(chunk, params["content_type"])
 
-            json(conn, %{
-              chunk: chunk_payload(chunk),
-              upload_url: upload_url,
-              upload_method: "POST"
-            })
+            json(
+              conn,
+              Map.merge(%{chunk: chunk_payload(chunk)}, upload_info)
+            )
 
           {:error, _changeset} ->
             ControllerHelpers.send_error(conn, 400, "failed to create chunk")
@@ -41,21 +40,25 @@ defmodule QaAssistWeb.ChunkController do
   end
 
   def upload(conn, %{"id" => id, "file" => %Plug.Upload{} = upload}) do
-    case Recording.get_chunk(id) do
-      nil ->
-        ControllerHelpers.send_error(conn, 404, "chunk not found")
+    if Storage.backend_module() == QaAssist.Storage.Gcs do
+      ControllerHelpers.send_error(conn, 400, "direct upload required for gcs storage")
+    else
+      case Recording.get_chunk(id) do
+        nil ->
+          ControllerHelpers.send_error(conn, 404, "chunk not found")
 
-      chunk ->
-        case Storage.store_upload(chunk, upload) do
-          {:ok, %{gcs_uri: gcs_uri, byte_size: byte_size, content_type: content_type}} ->
-            case Recording.mark_chunk_ready(chunk, gcs_uri, byte_size, content_type) do
-              {:ok, updated} -> json(conn, %{chunk: chunk_payload(updated)})
-              {:error, _} -> ControllerHelpers.send_error(conn, 400, "failed to update chunk")
-            end
+        chunk ->
+          case Storage.store_upload(chunk, upload) do
+            {:ok, %{gcs_uri: gcs_uri, byte_size: byte_size, content_type: content_type}} ->
+              case Recording.mark_chunk_ready(chunk, gcs_uri, byte_size, content_type) do
+                {:ok, updated} -> json(conn, %{chunk: chunk_payload(updated)})
+                {:error, _} -> ControllerHelpers.send_error(conn, 400, "failed to update chunk")
+              end
 
-          {:error, reason} ->
-            ControllerHelpers.send_error(conn, 400, "upload failed: #{reason}")
-        end
+            {:error, reason} ->
+              ControllerHelpers.send_error(conn, 400, "upload failed: #{reason}")
+          end
+      end
     end
   end
 

@@ -1,6 +1,15 @@
 defmodule QaAssist.Storage.Local do
   alias QaAssist.Recording.Chunk
 
+  def prepare_upload(%Chunk{} = chunk, _content_type) do
+    %{
+      storage: "local",
+      upload_url: QaAssistWeb.Endpoint.url() <> "/api/chunks/#{chunk.id}/upload",
+      upload_method: "POST",
+      upload_headers: %{}
+    }
+  end
+
   def store_upload(%Chunk{} = chunk, %Plug.Upload{} = upload) do
     base_dir = Path.join([priv_dir(), "static", "storage", "chunks"])
     File.mkdir_p!(base_dir)

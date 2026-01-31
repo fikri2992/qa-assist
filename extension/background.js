@@ -313,12 +313,64 @@ async function handleChunkData(message) {
 
   const uploadUrl = chunkResponse.upload_url;
   const uploadMethod = chunkResponse.upload_method || "POST";
+  const uploadHeaders = chunkResponse.upload_headers || {};
+  const resumable = chunkResponse.resumable;
+  const storage = chunkResponse.storage;
+  const gcsUri = chunkResponse.gcs_uri;
 
-  const formData = new FormData();
   const blob = new Blob([message.data], { type: message.mimeType || "video/webm" });
-  formData.append("file", blob, `chunk-${message.chunkIndex}.webm`);
 
-  await fetch(uploadUrl, { method: uploadMethod, body: formData });
+  if (resumable && resumable.start_url) {
+    const startHeaders = resumable.start_headers || {};
+    const startResponse = await fetch(resumable.start_url, {
+      method: resumable.start_method || "POST",
+      headers: startHeaders
+    });
+
+    const sessionUrl = startResponse.headers.get("Location");
+    if (sessionUrl) {
+      await fetch(sessionUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Type": blob.type,
+          "Content-Range": `bytes 0-${blob.size - 1}/${blob.size}`
+        },
+        body: blob
+      });
+    } else {
+      await directUpload(uploadUrl, uploadMethod, uploadHeaders, blob);
+    }
+  } else {
+    await directUpload(uploadUrl, uploadMethod, uploadHeaders, blob);
+  }
+
+  if (storage === "gcs" && gcsUri) {
+    await apiFetch(`/chunks/${chunkResponse.chunk.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        status: "ready",
+        analysis_status: "pending",
+        gcs_uri: gcsUri,
+        byte_size: blob.size,
+        content_type: blob.type
+      })
+    });
+  }
 }
 
 loadState();
+
+async function directUpload(uploadUrl, uploadMethod, uploadHeaders, blob) {
+  if (uploadMethod.toUpperCase() === "PUT") {
+    await fetch(uploadUrl, {
+      method: "PUT",
+      headers: uploadHeaders,
+      body: blob
+    });
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", blob, `chunk-${Date.now()}.webm`);
+  await fetch(uploadUrl, { method: uploadMethod, body: formData });
+}
