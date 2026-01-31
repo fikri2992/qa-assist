@@ -205,3 +205,42 @@ button.ghost:hover {
   padding: 4px 8px;
   border-radius: 5px;
 }
+
+.session-list {
+  display: grid;
+  gap: 8px;
+}
+
+.session-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+}
+
+.session-id {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.session-meta {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.session-status {
+  text-transform: uppercase;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+.session-empty {
+  color: var(--muted);
+  font-size: 11px;
+}

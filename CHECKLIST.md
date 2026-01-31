@@ -19,7 +19,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Console + network logs. (extension/background.js)
 - [x] Interaction capture with DOM context. (extension/content.js)
 - [x] Marker input via shortcut + annotation overlay.
-- [~] Persist session list locally and sync to backend. (stored locally)
+- [~] Persist session list locally and sync to backend. (stored locally + shown in popup)
 - [~] Web playback with timeline + logs + annotations + chat UI. (chat + overlays added)
 - [~] AI per chunk with aggregated report. (ADK wired, still basic)
 - [ ] Resumable uploads. (not implemented)
@@ -68,7 +68,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [~] Idle detection (auto-stop). (no resume)
 - [~] Tab switch handling (auto-stop). (no resume/new chunk)
 - [x] Markers + annotations overlay.
-- [~] Session list stored locally. (local storage only)
+- [~] Session list stored locally. (local storage + popup list)
 
 ## 07 — Web App (`plan/07-webapp.md`)
 - [x] Session list view. (webapp/app.js)

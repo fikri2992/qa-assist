@@ -1,7 +1,8 @@
-﻿const apiBaseInput = document.getElementById("apiBase");
+const apiBaseInput = document.getElementById("apiBase");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const statusEl = document.getElementById("status");
+const sessionList = document.getElementById("sessionList");
 
 chrome.storage.local.get(["qa_api_base", "qa_recording", "qa_status"], (state) => {
   apiBaseInput.value = state.qa_api_base || "http://localhost:4000/api";
@@ -11,6 +12,8 @@ chrome.storage.local.get(["qa_api_base", "qa_recording", "qa_status"], (state) =
     updateStatus(state.qa_recording ? "Recording" : "Idle");
   }
 });
+
+loadRecentSessions();
 
 function updateStatus(text) {
   statusEl.textContent = text;
@@ -27,17 +30,49 @@ startBtn.addEventListener("click", () => {
   chrome.storage.local.set({ qa_api_base: apiBase });
   chrome.runtime.sendMessage({ type: "START", apiBase }, () => {
     updateStatus("Recording");
+    loadRecentSessions();
   });
 });
 
 stopBtn.addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "STOP" }, () => {
     updateStatus("Stopped");
+    loadRecentSessions();
   });
 });
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "STATUS") {
     updateStatus(message.value);
+    loadRecentSessions();
   }
 });
+
+function loadRecentSessions() {
+  chrome.storage.local.get(["qa_sessions"], (state) => {
+    renderSessions(state.qa_sessions || []);
+  });
+}
+
+function renderSessions(sessions) {
+  sessionList.innerHTML = "";
+  if (!sessions.length) {
+    sessionList.innerHTML = "<div class=\"session-empty\">No sessions yet.</div>";
+    return;
+  }
+
+  sessions.slice(0, 6).forEach((session) => {
+    const row = document.createElement("div");
+    row.className = "session-row";
+    const id = session.id ? session.id.slice(0, 8) : "session";
+    const started = session.started_at ? new Date(session.started_at).toLocaleString() : "";
+    row.innerHTML = `
+      <div>
+        <div class="session-id">${id}</div>
+        <div class="session-meta">${started}</div>
+      </div>
+      <div class="session-status">${session.status || "unknown"}</div>
+    `;
+    sessionList.appendChild(row);
+  });
+}
