@@ -45,12 +45,12 @@ function updateUI(status) {
   
   if (state === "recording") {
     mainBtn.querySelector(".btn-label").textContent = "Stop Recording";
-    statusText.textContent = "Recording";
+    statusText.textContent = "";
     quickActions.classList.remove("hidden");
     startDurationTimer();
   } else {
     mainBtn.querySelector(".btn-label").textContent = "Start Recording";
-    statusText.textContent = "Ready";
+    statusText.textContent = "Record your test session for AI analysis";
     quickActions.classList.add("hidden");
     stopDurationTimer();
     durationEl.textContent = "";

@@ -95,6 +95,21 @@ body {
   text-align: center;
 }
 
+.status-text {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #7d8590;
+}
+
+.duration {
+  display: block;
+  margin-top: 8px;
+  font-family: ui-monospace, monospace;
+  font-size: 20px;
+  font-weight: 600;
+  color: #f97316;
+}
+
 .main-btn {
   width: 100%;
   padding: 12px 16px;
@@ -140,19 +155,31 @@ body {
   margin-top: 8px;
   font-size: 11px;
   color: #7d8590;
+  text-align: center;
 }
 
-.recording-control[data-state="recording"] .status-text {
-  color: #f97316;
+.recording-meta p {
+  margin: 0;
 }
 
-.duration {
-  margin-left: 8px;
-  font-family: ui-monospace, monospace;
-  color: #e6edf3;
+/* Idle Hint */
+.idle-hint {
+  margin-top: 12px;
+  padding: 10px;
+  background: #161b22;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #7d8590;
+  line-height: 1.5;
 }
 
-/* Quick Actions */
+.idle-hint p {
+  margin: 0;
+}
+
+.idle-hint.hidden {
+  display: none;
+}
 .quick-actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -207,6 +234,25 @@ body {
   border-radius: 3px;
   font-family: ui-monospace, monospace;
   font-size: 9px;
+}
+
+/* Idle Hint */
+.idle-hint {
+  margin-top: 12px;
+  padding: 10px;
+  background: #161b22;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #7d8590;
+  line-height: 1.5;
+}
+
+.idle-hint p {
+  margin: 0;
+}
+
+.idle-hint.hidden {
+  display: none;
 }
 
 /* Sessions Tab */
