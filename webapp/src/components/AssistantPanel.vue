@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, nextTick, computed } from "vue";
+import { ref, watch, nextTick, computed, onMounted, onUnmounted } from "vue";
 import { useAppStore } from "../stores/app";
 import { useChatStore } from "../stores/chat";
 import { useSessionsStore } from "../stores/sessions";
@@ -11,12 +11,31 @@ const sessionsStore = useSessionsStore();
 
 const { assistantOpen } = storeToRefs(appStore);
 const { messages, mode, model, loading } = storeToRefs(chatStore);
-const { currentSession } = storeToRefs(sessionsStore);
+const { currentSession, logs, interactions, annotations, markers, analysis, artifacts } = storeToRefs(sessionsStore);
 
 const inputText = ref("");
 const messagesContainer = ref(null);
+const textareaRef = ref(null);
+const fileInputRef = ref(null);
 const showModelDropdown = ref(false);
 const showModeDropdown = ref(false);
+const showMentionMenu = ref(false);
+const mentionFilter = ref("");
+const attachedResources = ref([]);
+const attachedImages = ref([]);
+
+// Close dropdowns when clicking outside
+function closeDropdowns(e) {
+  if (!e.target.closest('.mode-selector')) {
+    showModeDropdown.value = false;
+  }
+  if (!e.target.closest('.model-selector')) {
+    showModelDropdown.value = false;
+  }
+  if (!e.target.closest('.mention-menu') && !e.target.closest('textarea')) {
+    showMentionMenu.value = false;
+  }
+}
 
 const modes = [
   { value: "investigate", label: "Investigate", icon: "pi-search", desc: "Deep dive into issues" },
@@ -33,6 +52,26 @@ const models = [
 ];
 
 const currentModel = computed(() => models.find(m => m.value === model.value) || models[0]);
+
+// Available resources to mention (mock data for testing)
+const availableResources = computed(() => {
+  return [
+    { id: "logs", label: "Logs", icon: "pi-list", count: 24, type: "logs" },
+    { id: "events", label: "Interactions", icon: "pi-mouse", count: 18, type: "events" },
+    { id: "annotations", label: "Annotations", icon: "pi-bookmark", count: 5, type: "annotations" },
+    { id: "markers", label: "Markers", icon: "pi-flag", count: 3, type: "markers" },
+    { id: "analysis", label: "Analysis", icon: "pi-chart-bar", count: 1, type: "analysis" },
+    { id: "artifacts", label: "Artifacts", icon: "pi-download", count: 2, type: "artifacts" },
+    { id: "environment", label: "Environment", icon: "pi-desktop", count: 1, type: "environment" },
+    { id: "errors", label: "Errors", icon: "pi-exclamation-triangle", count: 7, type: "errors" },
+  ];
+});
+
+const filteredResources = computed(() => {
+  if (!mentionFilter.value) return availableResources.value;
+  const filter = mentionFilter.value.toLowerCase();
+  return availableResources.value.filter(r => r.label.toLowerCase().includes(filter));
+});
 
 // Auto-scroll on new messages
 watch(messages, async () => {
@@ -53,8 +92,12 @@ watch(currentSession, () => {
 async function handleSend() {
   if (!inputText.value.trim() || loading.value) return;
   const text = inputText.value;
+  const resources = [...attachedResources.value];
+  const images = [...attachedImages.value];
   inputText.value = "";
-  await chatStore.sendMessage(text);
+  attachedResources.value = [];
+  attachedImages.value = [];
+  await chatStore.sendMessage(text, resources, images);
 }
 
 function handleKeydown(e) {
@@ -62,6 +105,75 @@ function handleKeydown(e) {
     e.preventDefault();
     handleSend();
   }
+}
+
+function handleInput(e) {
+  const value = e.target.value;
+  const lastAtIndex = value.lastIndexOf("@");
+  
+  if (lastAtIndex !== -1) {
+    const afterAt = value.slice(lastAtIndex + 1);
+    // Check if we're in a mention context (no space after @)
+    if (!afterAt.includes(" ")) {
+      mentionFilter.value = afterAt;
+      showMentionMenu.value = true;
+      return;
+    }
+  }
+  showMentionMenu.value = false;
+  mentionFilter.value = "";
+}
+
+function selectResource(resource) {
+  // Remove the @... from input
+  const lastAtIndex = inputText.value.lastIndexOf("@");
+  if (lastAtIndex !== -1) {
+    inputText.value = inputText.value.slice(0, lastAtIndex);
+  }
+  
+  // Add to attached resources if not already there
+  if (!attachedResources.value.find(r => r.id === resource.id)) {
+    attachedResources.value.push(resource);
+  }
+  
+  showMentionMenu.value = false;
+  mentionFilter.value = "";
+  
+  // Focus back on textarea
+  nextTick(() => textareaRef.value?.focus());
+}
+
+function removeResource(resourceId) {
+  attachedResources.value = attachedResources.value.filter(r => r.id !== resourceId);
+}
+
+function triggerImageUpload() {
+  fileInputRef.value?.click();
+}
+
+function handleImageUpload(e) {
+  const files = e.target.files;
+  if (!files) return;
+  
+  for (const file of files) {
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        attachedImages.value.push({
+          id: Date.now() + Math.random(),
+          name: file.name,
+          url: event.target.result
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+  // Reset input
+  e.target.value = '';
+}
+
+function removeImage(imageId) {
+  attachedImages.value = attachedImages.value.filter(img => img.id !== imageId);
 }
 
 function selectModel(m) {
@@ -76,7 +188,17 @@ function selectMode(m) {
 
 function useSuggestion(text) {
   inputText.value = text;
+  nextTick(() => textareaRef.value?.focus());
 }
+
+// Lifecycle
+onMounted(() => {
+  document.addEventListener('click', closeDropdowns);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeDropdowns);
+});
 </script>
 
 <template>
@@ -162,22 +284,78 @@ function useSuggestion(text) {
         </template>
       </div>
 
-      <!-- Input Area - All controls grouped here -->
+      <!-- Input Area -->
       <div class="input-area">
-        <!-- Main input box -->
-        <div class="input-box" :class="{ focused: inputText, disabled: !currentSession }">
+        <div class="input-box">
+          <!-- Attached Resources & Images -->
+          <div v-if="attachedResources.length || attachedImages.length" class="attachments">
+            <div
+              v-for="resource in attachedResources"
+              :key="resource.id"
+              class="resource-chip"
+            >
+              <i :class="['pi', resource.icon]"></i>
+              <span>{{ resource.label }}</span>
+              <button class="chip-remove" @click="removeResource(resource.id)">
+                <i class="pi pi-times"></i>
+              </button>
+            </div>
+            <div
+              v-for="image in attachedImages"
+              :key="image.id"
+              class="image-chip"
+            >
+              <img :src="image.url" :alt="image.name" />
+              <button class="chip-remove" @click="removeImage(image.id)">
+                <i class="pi pi-times"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mention Menu -->
+          <Transition name="dropdown">
+            <div v-if="showMentionMenu && filteredResources.length" class="mention-menu">
+              <div class="mention-header">Reference session data</div>
+              <button
+                v-for="resource in filteredResources"
+                :key="resource.id"
+                class="mention-option"
+                @click="selectResource(resource)"
+              >
+                <i :class="['pi', resource.icon]"></i>
+                <span class="mention-label">{{ resource.label }}</span>
+                <span class="mention-count">{{ resource.count }}</span>
+              </button>
+            </div>
+          </Transition>
+
           <textarea
+            ref="textareaRef"
             v-model="inputText"
-            placeholder="Ask about this session..."
-            :disabled="loading || !currentSession"
-            rows="1"
+            placeholder="Ask about this session... (type @ to reference data)"
+            :disabled="loading"
+            rows="3"
             @keydown="handleKeydown"
+            @input="handleInput"
           ></textarea>
           
-          <!-- Bottom toolbar -->
-            <div class="input-toolbar">
-            <!-- Left: Mode dropdown -->
+          <div class="input-toolbar">
+            <!-- Hidden file input -->
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              @change="handleImageUpload"
+            />
+            
+            <!-- Left: Mode dropdown + Image upload -->
             <div class="toolbar-left">
+              <button class="icon-btn" @click="triggerImageUpload" title="Attach image">
+                <i class="pi pi-image"></i>
+              </button>
+              
               <div class="mode-selector" @click.stop>
                 <button class="mode-btn" @click="showModeDropdown = !showModeDropdown">
                   <i :class="['pi', currentMode.icon]"></i>
@@ -251,8 +429,6 @@ function useSuggestion(text) {
     </aside>
   </Transition>
 
-  <!-- Click outside to close dropdowns -->
-  <div v-if="showModelDropdown || showModeDropdown" class="backdrop" @click="showModelDropdown = false; showModeDropdown = false"></div>
 </template>
 
 <style scoped>
@@ -292,11 +468,7 @@ function useSuggestion(text) {
   transform: translateY(-8px);
 }
 
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 99;
-}
+
 
 /* Header */
 .panel-header {
@@ -525,44 +697,188 @@ function useSuggestion(text) {
 
 /* Input Area */
 .input-area {
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-subtle);
-  background: var(--bg-base);
+  background: var(--bg-surface);
 }
 
 .input-box {
-  border: 1px solid var(--border-default);
-  border-radius: 16px;
-  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Attached Resources */
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.resource-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  background: var(--accent-soft);
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--accent);
+}
+
+.resource-chip i {
+  font-size: 9px;
+}
+
+.image-chip {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
   overflow: hidden;
-  transition: all 0.15s;
 }
 
-.input-box.focused {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+.image-chip img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.input-box.disabled {
-  opacity: 0.6;
+.image-chip .chip-remove {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.image-chip:hover .chip-remove {
+  opacity: 1;
+}
+
+.chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  margin-left: 1px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.chip-remove:hover {
+  opacity: 1;
+}
+
+.chip-remove i {
+  font-size: 7px;
+}
+
+/* Mention Menu */
+.mention-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  z-index: 1001;
+}
+
+.mention-header {
+  padding: 8px 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.mention-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+}
+
+.mention-option:hover {
+  background: var(--bg-hover);
+}
+
+.mention-option > .pi {
+  font-size: 12px;
+  color: var(--accent);
+  width: 16px;
+}
+
+.mention-label {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.mention-count {
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .input-box textarea {
   width: 100%;
-  padding: var(--space-3) var(--space-4);
-  border: none;
-  background: transparent;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  background: var(--bg-base);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
+  font-family: inherit;
   line-height: 1.5;
   resize: none;
   outline: none;
-  min-height: 44px;
-  max-height: 120px;
+  min-height: 80px;
+  max-height: 150px;
+  transition: border-color 0.15s;
+  cursor: text;
+}
+
+.input-box textarea:focus {
+  border-color: var(--accent);
 }
 
 .input-box textarea::placeholder {
   color: var(--text-muted);
+}
+
+.input-box textarea:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Input Toolbar */
@@ -570,9 +886,7 @@ function useSuggestion(text) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--border-subtle);
-  background: var(--bg-base);
+  margin-top: 6px;
 }
 
 .toolbar-left,
@@ -582,21 +896,41 @@ function useSuggestion(text) {
   gap: var(--space-2);
 }
 
+.icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 /* Mode Selector */
 .mode-selector {
   position: relative;
+  z-index: 1000;
 }
 
 .mode-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 5px;
+  padding: 4px 8px;
   border: 1px solid var(--border-default);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--bg-surface);
   color: var(--text-secondary);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
@@ -607,32 +941,37 @@ function useSuggestion(text) {
   color: var(--text-primary);
 }
 
+.mode-btn > .pi:first-child {
+  font-size: 11px;
+}
+
 .mode-btn .pi-chevron-down {
-  font-size: 10px;
-  opacity: 0.6;
+  font-size: 8px;
+  opacity: 0.5;
 }
 
 .mode-dropdown {
   position: absolute;
-  bottom: 100%;
+  bottom: calc(100% + 4px);
   left: 0;
-  margin-bottom: 8px;
-  min-width: 200px;
+  width: 120px;
   background: var(--bg-surface);
   border: 1px solid var(--border-default);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   overflow: hidden;
-  z-index: 10;
+  z-index: 1001;
+  padding: 4px;
 }
 
 .mode-option {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: 8px;
   width: 100%;
-  padding: var(--space-3);
+  padding: 6px 8px;
   border: none;
+  border-radius: 4px;
   background: transparent;
   cursor: pointer;
   transition: background 0.15s;
@@ -648,20 +987,31 @@ function useSuggestion(text) {
 }
 
 .mode-option > .pi:first-child {
-  font-size: 14px;
+  font-size: 11px;
   color: var(--text-muted);
-  width: 20px;
-  text-align: center;
 }
 
 .mode-option.active > .pi:first-child {
   color: var(--accent);
 }
 
+.mode-option .option-info {
+  flex: 1;
+}
+
+.mode-option .option-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.mode-option .option-desc {
+  display: none;
+}
+
 .mode-option .check-icon {
   color: var(--accent);
-  font-size: 12px;
-  margin-left: auto;
+  font-size: 9px;
 }
 
 /* Model Selector */
