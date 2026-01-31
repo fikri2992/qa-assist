@@ -6,25 +6,22 @@ defmodule QaAssistWeb.SessionController do
   alias QaAssistWeb.ControllerHelpers
 
   def index(conn, _params) do
-    case ControllerHelpers.fetch_device_id(conn) do
-      nil ->
-        ControllerHelpers.send_error(conn, 400, "device_id required")
-
-      device_id ->
-        sessions = Recording.list_sessions(device_id)
+    case ControllerHelpers.require_device(conn) do
+      {:ok, device} ->
+        sessions = Recording.list_sessions(device.id)
         json(conn, Enum.map(sessions, &session_summary/1))
+
+      {:error, conn} ->
+        conn
     end
   end
 
   def create(conn, params) do
-    case ControllerHelpers.fetch_device_id(conn) do
-      nil ->
-        ControllerHelpers.send_error(conn, 400, "device_id required")
-
-      device_id ->
+    case ControllerHelpers.require_device(conn) do
+      {:ok, device} ->
         metadata = Map.get(params, "metadata", %{})
 
-        case Recording.create_session(device_id, metadata) do
+        case Recording.create_session(device.id, metadata) do
           {:ok, session} ->
             json(conn, %{session: session_payload(session)})
 
@@ -34,54 +31,57 @@ defmodule QaAssistWeb.SessionController do
           {:error, _changeset} ->
             ControllerHelpers.send_error(conn, 400, "failed to create session")
         end
+
+      {:error, conn} ->
+        conn
     end
   end
 
   def start(conn, %{"id" => id}) do
-    with {:ok, session} <- load_session(id),
+    with {:ok, session} <- ControllerHelpers.require_session(conn, id),
          {:ok, updated} <- Recording.start_session(session) do
       json(conn, %{
         session: session_payload(updated),
         upload_base_url: QaAssistWeb.Endpoint.url() <> "/api"
       })
     else
-      {:error, :not_found} -> ControllerHelpers.send_error(conn, 404, "session not found")
+      {:error, %Plug.Conn{} = conn} -> conn
       {:error, _} -> ControllerHelpers.send_error(conn, 400, "failed to start session")
     end
   end
 
   def stop(conn, %{"id" => id}) do
-    with {:ok, session} <- load_session(id),
+    with {:ok, session} <- ControllerHelpers.require_session(conn, id),
          {:ok, updated} <- Recording.stop_session(session) do
       json(conn, %{session: session_payload(updated)})
     else
-      {:error, :not_found} -> ControllerHelpers.send_error(conn, 404, "session not found")
+      {:error, %Plug.Conn{} = conn} -> conn
       {:error, _} -> ControllerHelpers.send_error(conn, 400, "failed to stop session")
     end
   end
 
   def pause(conn, %{"id" => id}) do
-    with {:ok, session} <- load_session(id),
+    with {:ok, session} <- ControllerHelpers.require_session(conn, id),
          {:ok, updated} <- Recording.pause_session(session) do
       json(conn, %{session: session_payload(updated)})
     else
-      {:error, :not_found} -> ControllerHelpers.send_error(conn, 404, "session not found")
+      {:error, %Plug.Conn{} = conn} -> conn
       {:error, _} -> ControllerHelpers.send_error(conn, 400, "failed to pause session")
     end
   end
 
   def resume(conn, %{"id" => id}) do
-    with {:ok, session} <- load_session(id),
+    with {:ok, session} <- ControllerHelpers.require_session(conn, id),
          {:ok, updated} <- Recording.resume_session(session) do
       json(conn, %{session: session_payload(updated)})
     else
-      {:error, :not_found} -> ControllerHelpers.send_error(conn, 404, "session not found")
+      {:error, %Plug.Conn{} = conn} -> conn
       {:error, _} -> ControllerHelpers.send_error(conn, 400, "failed to resume session")
     end
   end
 
   def show(conn, %{"id" => id}) do
-    with {:ok, session} <- load_session(id) do
+    with {:ok, session} <- ControllerHelpers.require_session(conn, id) do
       chunks = Recording.list_chunks(session.id)
 
       payload =
@@ -90,14 +90,7 @@ defmodule QaAssistWeb.SessionController do
 
       json(conn, payload)
     else
-      {:error, :not_found} -> ControllerHelpers.send_error(conn, 404, "session not found")
-    end
-  end
-
-  defp load_session(id) do
-    case Recording.get_session(id) do
-      nil -> {:error, :not_found}
-      session -> {:ok, session}
+      {:error, %Plug.Conn{} = conn} -> conn
     end
   end
 

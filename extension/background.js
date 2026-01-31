@@ -4,6 +4,7 @@ const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 const state = {
   deviceId: null,
+  deviceSecret: null,
   sessionId: null,
   recording: false,
   status: "idle",
@@ -21,6 +22,7 @@ const state = {
 async function loadState() {
   const stored = await chrome.storage.local.get([
     "qa_device_id",
+    "qa_device_secret",
     "qa_session_id",
     "qa_recording",
     "qa_status",
@@ -29,6 +31,7 @@ async function loadState() {
     "qa_auto_paused"
   ]);
   state.deviceId = stored.qa_device_id || null;
+  state.deviceSecret = stored.qa_device_secret || null;
   state.sessionId = stored.qa_session_id || null;
   state.recording = stored.qa_recording || false;
   state.status = stored.qa_status || (state.recording ? "recording" : "idle");
@@ -40,6 +43,7 @@ async function loadState() {
 async function persistState() {
   await chrome.storage.local.set({
     qa_device_id: state.deviceId,
+    qa_device_secret: state.deviceSecret,
     qa_session_id: state.sessionId,
     qa_recording: state.recording,
     qa_status: state.status,
@@ -56,6 +60,9 @@ async function apiFetch(path, options = {}) {
   if (state.deviceId) {
     headers["x-device-id"] = state.deviceId;
   }
+  if (state.deviceSecret) {
+    headers["x-device-secret"] = state.deviceSecret;
+  }
 
   const body = options.body;
   if (body && !(body instanceof FormData)) {
@@ -71,7 +78,7 @@ async function apiFetch(path, options = {}) {
 }
 
 async function ensureDevice() {
-  if (state.deviceId) {
+  if (state.deviceId && state.deviceSecret) {
     return state.deviceId;
   }
 
@@ -81,6 +88,7 @@ async function ensureDevice() {
   });
 
   state.deviceId = response.device_id;
+  state.deviceSecret = response.device_secret;
   await persistState();
   return state.deviceId;
 }
@@ -281,7 +289,6 @@ async function stopRecording() {
   state.recording = false;
   state.status = "ended";
   state.autoPaused = false;
-  state.sessionId = null;
   await persistState();
 
   if (wasRecording && state.currentTabId) {
@@ -292,7 +299,10 @@ async function stopRecording() {
     await stopCapture();
   }
   await flushEvents();
+  state.eventQueue = [];
   await stopSession();
+  state.sessionId = null;
+  await persistState();
   await updateSessionEntry(sessionId, { status: "ended", ended_at: new Date().toISOString() });
 
   notifyStatus("Stopped");
@@ -359,7 +369,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message.type === "INTERACTION") {
     state.lastActivity = Date.now();
-    enqueueEvent(message.event);
+    if (state.recording) {
+      enqueueEvent(message.event);
+    }
   }
   if (message.type === "ACTIVITY") {
     state.lastActivity = Date.now();
@@ -369,18 +381,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
   if (message.type === "ANNOTATION_SUBMIT") {
-    enqueueEvent({
-      ts: new Date().toISOString(),
-      type: "annotation",
-      payload: message.payload
-    });
+    if (state.recording) {
+      enqueueEvent({
+        ts: new Date().toISOString(),
+        type: "annotation",
+        payload: message.payload
+      });
+    }
   }
   if (message.type === "MARKER_SUBMIT") {
-    enqueueEvent({
-      ts: new Date().toISOString(),
-      type: "marker",
-      payload: message.payload
-    });
+    if (state.recording) {
+      enqueueEvent({
+        ts: new Date().toISOString(),
+        type: "marker",
+        payload: message.payload
+      });
+    }
   }
   if (message.type === "RESUME_REQUEST") {
     startRecording(state.apiBase).then(() => sendResponse({ ok: true }));

@@ -6,7 +6,7 @@ import Button from "primevue/button";
 import Message from "primevue/message";
 
 const sessionsStore = useSessionsStore();
-const { artifacts, apiBase } = storeToRefs(sessionsStore);
+const { artifacts, apiBase, deviceSecret } = storeToRefs(sessionsStore);
 </script>
 
 <template>
@@ -29,7 +29,7 @@ const { artifacts, apiBase } = storeToRefs(sessionsStore);
             size="small"
             outlined
             as="a"
-            :href="`${apiBase}/artifacts/${artifact.id}`"
+            :href="`${apiBase}/artifacts/${artifact.id}?device_secret=${encodeURIComponent(deviceSecret || '')}`"
             target="_blank"
           />
         </template>

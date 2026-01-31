@@ -101,6 +101,17 @@ defmodule QaAssist.Recording do
       content_type: attrs["content_type"]
     })
     |> Repo.update()
+    |> case do
+      {:ok, updated} ->
+        if should_enqueue_analysis?(chunk, updated) do
+          Analysis.enqueue_chunk(updated)
+        end
+
+        {:ok, updated}
+
+      error ->
+        error
+    end
   end
 
   def mark_chunk_ready(%Chunk{} = chunk, gcs_uri, byte_size, content_type) do
@@ -197,5 +208,10 @@ defmodule QaAssist.Recording do
       {:ok, dt, _offset} -> dt
       _ -> nil
     end
+  end
+
+  defp should_enqueue_analysis?(%Chunk{} = before, %Chunk{} = updated) do
+    updated.status == "ready" and updated.analysis_status == "pending" and
+      (before.status != updated.status or before.analysis_status != updated.analysis_status)
   end
 end

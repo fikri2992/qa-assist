@@ -7,11 +7,8 @@ defmodule QaAssistWeb.ChatController do
   alias QaAssistWeb.ControllerHelpers
 
   def create(conn, %{"id" => session_id} = params) do
-    case Recording.get_session(session_id) do
-      nil ->
-        ControllerHelpers.send_error(conn, 404, "session not found")
-
-      session ->
+    case ControllerHelpers.require_session(conn, session_id) do
+      {:ok, session} ->
         events = Recording.list_events(session.id, 200)
         analysis = Analysis.get_session_report(session.id)
 
@@ -28,6 +25,9 @@ defmodule QaAssistWeb.ChatController do
           {:ok, body} -> json(conn, body)
           {:error, reason} -> ControllerHelpers.send_error(conn, 502, reason)
         end
+
+      {:error, conn} ->
+        conn
     end
   end
 

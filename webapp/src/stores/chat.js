@@ -39,7 +39,11 @@ export const useChatStore = defineStore("chat", () => {
         `${sessionsStore.apiBase}/sessions/${sessionsStore.currentSession.id}/chat`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-device-id": sessionsStore.deviceId,
+            "x-device-secret": sessionsStore.deviceSecret,
+          },
           body: JSON.stringify({ message: text, mode: mode.value, model: model.value }),
           signal: abortController.signal,
         }

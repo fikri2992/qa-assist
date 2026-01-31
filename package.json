@@ -2,10 +2,12 @@
   "name": "qa-assist-ui",
   "private": true,
   "devDependencies": {
+    "@playwright/test": "^1.50.0",
     "tailwindcss": "^4.1.0",
     "@tailwindcss/cli": "^4.1.0"
   },
   "scripts": {
+    "test:e2e": "playwright test --config=playwright.config.js",
     "tailwind:webapp": "npx @tailwindcss/cli -i ./webapp/tailwind.css -o ./webapp/styles.css",
     "tailwind:extension": "npx @tailwindcss/cli -i ./extension/tailwind.css -o ./extension/styles.css",
     "tailwind:build": "npm run tailwind:webapp && npm run tailwind:extension"

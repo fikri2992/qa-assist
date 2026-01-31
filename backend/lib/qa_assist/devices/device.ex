@@ -8,12 +8,13 @@ defmodule QaAssist.Devices.Device do
   schema "devices" do
     field :metadata, :map
     field :last_seen, :utc_datetime_usec
+    field :secret, :string
 
     timestamps(type: :utc_datetime_usec)
   end
 
   def changeset(device, attrs) do
     device
-    |> cast(attrs, [:metadata, :last_seen])
+    |> cast(attrs, [:metadata, :last_seen, :secret])
   end
 end

@@ -133,14 +133,20 @@ function loadRecentSessions() {
 
 async function syncSessions() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(["qa_device_id"], async (state) => {
+    chrome.storage.local.get(["qa_device_id", "qa_device_secret"], async (state) => {
       const deviceId = state.qa_device_id;
+      const deviceSecret = state.qa_device_secret;
       if (!deviceId) {
         resolve();
         return;
       }
       try {
-        const res = await fetch(`${DEFAULT_API_BASE}/sessions?device_id=${deviceId}`);
+        const res = await fetch(`${DEFAULT_API_BASE}/sessions?device_id=${deviceId}`, {
+          headers: {
+            "x-device-id": deviceId,
+            "x-device-secret": deviceSecret || "",
+          },
+        });
         if (!res.ok) throw new Error(`Failed: ${res.status}`);
         const sessions = await res.json();
         chrome.storage.local.set({ qa_sessions: sessions });

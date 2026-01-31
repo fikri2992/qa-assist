@@ -6,11 +6,8 @@ defmodule QaAssistWeb.ChunkController do
   alias QaAssistWeb.ControllerHelpers
 
   def create(conn, %{"id" => session_id} = params) do
-    case Recording.get_session(session_id) do
-      nil ->
-        ControllerHelpers.send_error(conn, 404, "session not found")
-
-      _session ->
+    case ControllerHelpers.require_session(conn, session_id) do
+      {:ok, _session} ->
         case Recording.create_chunk(session_id, params) do
           {:ok, chunk} ->
             upload_info = Storage.prepare_upload(chunk, params["content_type"])
@@ -23,19 +20,22 @@ defmodule QaAssistWeb.ChunkController do
           {:error, _changeset} ->
             ControllerHelpers.send_error(conn, 400, "failed to create chunk")
         end
+
+      {:error, conn} ->
+        conn
     end
   end
 
   def update(conn, %{"id" => id} = params) do
-    case Recording.get_chunk(id) do
-      nil ->
-        ControllerHelpers.send_error(conn, 404, "chunk not found")
-
-      chunk ->
+    case ControllerHelpers.require_chunk(conn, id) do
+      {:ok, chunk} ->
         case Recording.update_chunk(chunk, params) do
           {:ok, updated} -> json(conn, %{chunk: chunk_payload(updated)})
           {:error, _} -> ControllerHelpers.send_error(conn, 400, "failed to update chunk")
         end
+
+      {:error, conn} ->
+        conn
     end
   end
 
@@ -43,11 +43,8 @@ defmodule QaAssistWeb.ChunkController do
     if Storage.backend_module() == QaAssist.Storage.Gcs do
       ControllerHelpers.send_error(conn, 400, "direct upload required for gcs storage")
     else
-      case Recording.get_chunk(id) do
-        nil ->
-          ControllerHelpers.send_error(conn, 404, "chunk not found")
-
-        chunk ->
+      case ControllerHelpers.require_chunk(conn, id) do
+        {:ok, chunk} ->
           case Storage.store_upload(chunk, upload) do
             {:ok, %{gcs_uri: gcs_uri, byte_size: byte_size, content_type: content_type}} ->
               case Recording.mark_chunk_ready(chunk, gcs_uri, byte_size, content_type) do
@@ -58,6 +55,9 @@ defmodule QaAssistWeb.ChunkController do
             {:error, reason} ->
               ControllerHelpers.send_error(conn, 400, "upload failed: #{reason}")
           end
+
+        {:error, conn} ->
+          conn
       end
     end
   end

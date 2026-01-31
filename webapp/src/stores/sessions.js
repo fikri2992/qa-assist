@@ -5,6 +5,7 @@ export const useSessionsStore = defineStore("sessions", () => {
   // Connection
   const apiBase = ref(localStorage.getItem("qa_api_base") || "http://localhost:4000/api");
   const deviceId = ref(localStorage.getItem("qa_device_id") || "");
+  const deviceSecret = ref(localStorage.getItem("qa_device_secret") || "");
 
   // Sessions
   const sessions = ref([]);
@@ -54,8 +55,11 @@ export const useSessionsStore = defineStore("sessions", () => {
   });
 
   // Actions
-  async function fetchJson(url) {
-    const res = await fetch(url);
+  async function fetchJson(url, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    if (deviceId.value) headers["x-device-id"] = deviceId.value;
+    if (deviceSecret.value) headers["x-device-secret"] = deviceSecret.value;
+    const res = await fetch(url, { ...options, headers });
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
     return res.json();
   }
@@ -63,11 +67,12 @@ export const useSessionsStore = defineStore("sessions", () => {
   function saveConnection() {
     localStorage.setItem("qa_api_base", apiBase.value);
     localStorage.setItem("qa_device_id", deviceId.value);
+    localStorage.setItem("qa_device_secret", deviceSecret.value);
   }
 
   async function loadSessions() {
-    if (!apiBase.value || !deviceId.value) {
-      error.value = "API URL and Device ID are required.";
+    if (!apiBase.value || !deviceId.value || !deviceSecret.value) {
+      error.value = "API URL, Device ID, and Device Secret are required.";
       return;
     }
 
@@ -145,6 +150,7 @@ export const useSessionsStore = defineStore("sessions", () => {
   return {
     apiBase,
     deviceId,
+    deviceSecret,
     sessions,
     currentSession,
     loading,

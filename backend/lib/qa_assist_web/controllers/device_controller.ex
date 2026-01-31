@@ -9,7 +9,7 @@ defmodule QaAssistWeb.DeviceController do
 
     case Devices.create_device(metadata) do
       {:ok, device} ->
-        json(conn, %{device_id: device.id})
+        json(conn, %{device_id: device.id, device_secret: device.secret})
 
       {:error, _changeset} ->
         ControllerHelpers.send_error(conn, 400, "failed to create device")

@@ -5,15 +5,15 @@ defmodule QaAssistWeb.EventController do
   alias QaAssistWeb.ControllerHelpers
 
   def create(conn, %{"id" => session_id, "events" => events}) when is_list(events) do
-    case Recording.get_session(session_id) do
-      nil ->
-        ControllerHelpers.send_error(conn, 404, "session not found")
-
-      _session ->
+    case ControllerHelpers.require_session(conn, session_id) do
+      {:ok, _session} ->
         case Recording.record_events(session_id, events) do
           {:ok, count} -> json(conn, %{inserted: count})
           {:error, _} -> ControllerHelpers.send_error(conn, 400, "failed to ingest events")
         end
+
+      {:error, conn} ->
+        conn
     end
   end
 
@@ -24,13 +24,13 @@ defmodule QaAssistWeb.EventController do
   def index(conn, %{"id" => session_id} = params) do
     limit = parse_limit(params["limit"])
 
-    case Recording.get_session(session_id) do
-      nil ->
-        ControllerHelpers.send_error(conn, 404, "session not found")
-
-      _session ->
+    case ControllerHelpers.require_session(conn, session_id) do
+      {:ok, _session} ->
         events = Recording.list_events(session_id, limit)
         json(conn, Enum.map(events, &event_payload/1))
+
+      {:error, conn} ->
+        conn
     end
   end
 
