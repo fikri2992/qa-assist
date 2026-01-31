@@ -1,4 +1,5 @@
 <script setup>
+import { onMounted } from "vue";
 import { useAppStore } from "../stores/app";
 import { useSessionsStore } from "../stores/sessions";
 import { useRouter } from "vue-router";
@@ -9,11 +10,7 @@ const sessionsStore = useSessionsStore();
 const router = useRouter();
 
 const { sidebarCollapsed } = storeToRefs(appStore);
-const { apiBase, deviceId, sessions, loading, currentSession } = storeToRefs(sessionsStore);
-
-async function handleLoadSessions() {
-  await sessionsStore.loadSessions();
-}
+const { sessions, loading, currentSession } = storeToRefs(sessionsStore);
 
 async function handleSelectSession(session) {
   await sessionsStore.selectSession(session.id);
@@ -23,6 +20,11 @@ async function handleSelectSession(session) {
 function formatSessionId(id) {
   return id?.slice(0, 8) || "";
 }
+
+// Auto-load sessions on mount
+onMounted(() => {
+  sessionsStore.loadSessions();
+});
 </script>
 
 <template>
@@ -37,26 +39,6 @@ function formatSessionId(id) {
       </div>
       <button class="collapse-btn" title="Collapse sidebar" @click="appStore.toggleSidebar">
         <i class="pi pi-angle-left"></i>
-      </button>
-    </div>
-
-    <div class="sidebar-section">
-      <div class="section-label">Connection</div>
-      <input
-        v-model="apiBase"
-        type="text"
-        placeholder="http://localhost:4000/api"
-        class="input-field"
-      />
-      <input
-        v-model="deviceId"
-        type="text"
-        placeholder="Device UUID"
-        class="input-field"
-      />
-      <button class="load-btn" :disabled="loading" @click="handleLoadSessions">
-        <i :class="loading ? 'pi pi-spin pi-spinner' : 'pi pi-refresh'"></i>
-        {{ loading ? "Loading..." : "Load Sessions" }}
       </button>
     </div>
 
@@ -185,53 +167,6 @@ function formatSessionId(id) {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-}
-
-.input-field {
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  background: var(--bg-base);
-  color: var(--text-primary);
-  font-size: 13px;
-  transition: all 0.15s;
-}
-
-.input-field::placeholder {
-  color: var(--text-muted);
-}
-
-.input-field:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.load-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-3);
-  border: none;
-  border-radius: 10px;
-  background: var(--accent);
-  color: white;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.load-btn:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.load-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
 }
 
 .session-list {

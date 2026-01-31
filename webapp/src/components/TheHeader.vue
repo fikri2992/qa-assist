@@ -6,7 +6,7 @@ import { computed } from "vue";
 
 const appStore = useAppStore();
 const sessionsStore = useSessionsStore();
-const { theme } = storeToRefs(appStore);
+const { theme, assistantOpen } = storeToRefs(appStore);
 const { currentSession } = storeToRefs(sessionsStore);
 
 const sessionTitle = computed(() => {
@@ -45,9 +45,13 @@ const themeIcon = computed(() => theme.value === "dark" ? "pi-sun" : "pi-moon");
       <button class="icon-btn" :title="theme === 'dark' ? 'Light mode' : 'Dark mode'" @click="appStore.toggleTheme">
         <i :class="['pi', themeIcon]"></i>
       </button>
-      <button class="assistant-btn" @click="appStore.toggleAssistant">
+      <button 
+        v-if="!assistantOpen" 
+        class="assistant-btn"
+        title="Open Assistant"
+        @click="appStore.toggleAssistant"
+      >
         <i class="pi pi-sparkles"></i>
-        <span>Assistant</span>
       </button>
     </div>
   </header>
@@ -174,24 +178,27 @@ const themeIcon = computed(() => theme.value === "dark" ? "pi-sun" : "pi-moon");
 .assistant-btn {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-radius: 10px;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   border: none;
   background: linear-gradient(135deg, var(--accent) 0%, #f59e0b 100%);
   color: white;
-  font-size: 13px;
-  font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s ease;
 }
 
 .assistant-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+  transform: scale(1.05);
+  box-shadow: 0 4px 20px rgba(249, 115, 22, 0.4);
+}
+
+.assistant-btn:active {
+  transform: scale(0.95);
 }
 
 .assistant-btn i {
-  font-size: 14px;
+  font-size: 18px;
 }
 </style>

@@ -7,7 +7,7 @@ import TheHeader from "./components/TheHeader.vue";
 import AssistantPanel from "./components/AssistantPanel.vue";
 
 const appStore = useAppStore();
-const { sidebarCollapsed } = storeToRefs(appStore);
+const { sidebarCollapsed, assistantOpen } = storeToRefs(appStore);
 
 onMounted(() => {
   appStore.initTheme();
@@ -15,7 +15,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+  <div class="app-shell" :class="{ 'sidebar-collapsed': sidebarCollapsed, 'assistant-open': assistantOpen }">
     <TheSidebar />
 
     <div class="main-wrapper">
@@ -40,6 +40,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  transition: margin-right 0.3s ease;
 }
 
 .main-content {

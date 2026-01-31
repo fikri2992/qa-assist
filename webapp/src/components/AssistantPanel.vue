@@ -433,28 +433,25 @@ onUnmounted(() => {
 
 <style scoped>
 .assistant-panel {
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: 420px;
+  width: 380px;
   height: 100vh;
   background: var(--bg-surface);
   border-left: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  z-index: 100;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
 }
 
 /* Transitions */
 .slide-enter-active,
 .slide-leave-active {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
 }
 
 .slide-enter-from,
 .slide-leave-to {
-  transform: translateX(100%);
+  width: 0;
+  opacity: 0;
 }
 
 .dropdown-enter-active,
