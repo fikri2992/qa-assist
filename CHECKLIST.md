@@ -25,7 +25,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [~] Resumable uploads. (GCS resumable supported)
 - [~] Tab switch + idle handling. (auto-pause with auto-resume)
 - [~] GCS storage + signed URLs. (supported via env)
-- [ ] Redis queues. (not wired)
+- [x] Redis queues. (backend/lib/qa_assist/redis_queue.ex)
 - [ ] Tailwind v4 UI. (plain CSS used)
 
 ## 03 — Architecture and Data Flow (`plan/03-architecture-and-dataflow.md`)
@@ -33,7 +33,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Web app playback UI. (webapp/)
 - [x] Phoenix API for sessions/events/chunks. (backend/lib/qa_assist_web/controllers/*)
 - [~] Storage layer. (local + GCS supported)
-- [ ] Redis job dispatch. (not wired)
+- [x] Redis job dispatch. (backend/lib/qa_assist/redis_worker.ex)
 - [x] ADK Python multi-agent orchestration. (ai/adk_orchestrator.py)
 - [~] Signed upload URLs + resumable uploads. (GCS supports signed/resumable)
 

@@ -23,6 +23,19 @@ end
 config :qa_assist, QaAssistWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+redis_enabled =
+  System.get_env("REDIS_ENABLED", "false")
+  |> String.downcase()
+  |> (&(&1 in ["1", "true", "yes"])).()
+
+redis_url = System.get_env("REDIS_URL", "redis://localhost:6379")
+redis_queue = System.get_env("REDIS_QUEUE", "qa_assist:analysis")
+
+config :qa_assist, :redis,
+  enabled: redis_enabled,
+  url: redis_url,
+  queue: redis_queue
+
 storage_backend = System.get_env("STORAGE_BACKEND", "local")
 
 if storage_backend == "gcs" do

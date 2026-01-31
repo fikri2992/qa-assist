@@ -17,6 +17,11 @@ config :qa_assist, :storage,
 
 config :qa_assist, :analysis_service, url: "http://localhost:8000"
 
+config :qa_assist, :redis,
+  enabled: false,
+  url: "redis://localhost:6379",
+  queue: "qa_assist:analysis"
+
 # Configure the endpoint
 config :qa_assist, QaAssistWeb.Endpoint,
   url: [host: "localhost"],

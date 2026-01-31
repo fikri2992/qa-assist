@@ -3,14 +3,21 @@ defmodule QaAssist.Analysis do
 
   alias QaAssist.Analysis.Analysis
   alias QaAssist.Analysis.Runner
+  alias QaAssist.RedisQueue
   alias QaAssist.Recording.Chunk
   alias QaAssist.Recording.Session
   alias QaAssist.Repo
 
   def enqueue_chunk(%Chunk{} = chunk) do
-    Task.Supervisor.start_child(QaAssist.TaskSupervisor, fn ->
-      Runner.run_chunk(chunk)
-    end)
+    case RedisQueue.enqueue(%{type: "chunk", chunk_id: chunk.id}) do
+      :ok ->
+        :ok
+
+      _ ->
+        Task.Supervisor.start_child(QaAssist.TaskSupervisor, fn ->
+          Runner.run_chunk(chunk)
+        end)
+    end
 
     :ok
   end
@@ -56,9 +63,15 @@ defmodule QaAssist.Analysis do
   end
 
   def enqueue_session(%Session{} = session) do
-    Task.Supervisor.start_child(QaAssist.TaskSupervisor, fn ->
-      Runner.run_session(session)
-    end)
+    case RedisQueue.enqueue(%{type: "session", session_id: session.id}) do
+      :ok ->
+        :ok
+
+      _ ->
+        Task.Supervisor.start_child(QaAssist.TaskSupervisor, fn ->
+          Runner.run_session(session)
+        end)
+    end
 
     :ok
   end
