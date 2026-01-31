@@ -14,6 +14,7 @@ const logPane = document.getElementById("logPane");
 const eventPane = document.getElementById("eventPane");
 const analysisPane = document.getElementById("analysisPane");
 const analysisSummary = document.getElementById("analysisSummary");
+const analysisIssues = document.getElementById("analysisIssues");
 const analysisReport = document.getElementById("analysisReport");
 const analysisStatus = document.getElementById("analysisStatus");
 const autonomyList = document.getElementById("autonomyList");
@@ -399,6 +400,7 @@ function renderArtifacts(artifacts, apiBase) {
 function renderAnalysis(analysis) {
   if (!analysis || typeof analysis !== "object") {
     analysisSummary.textContent = "No analysis available yet.";
+    analysisIssues.innerHTML = "";
     analysisReport.textContent = "";
     analysisStatus.textContent = "pending";
     autonomyList.innerHTML = "";
@@ -409,6 +411,8 @@ function renderAnalysis(analysis) {
   analysisStatus.textContent = analysis.status || "pending";
   analysisSummary.textContent = analysis.summary || "No analysis available yet.";
 
+  renderIssueList(analysis);
+
   if (analysis.final_report) {
     analysisReport.textContent = JSON.stringify(analysis.final_report, null, 2);
   } else {
@@ -417,6 +421,40 @@ function renderAnalysis(analysis) {
 
   renderAutonomy(analysis);
   updateChunkAnalysisBadges(analysis);
+}
+
+function renderIssueList(analysis) {
+  if (!analysisIssues) return;
+  const finalIssues = analysis?.final_report?.issues;
+  const analyses = Array.isArray(analysis.analyses) ? analysis.analyses : [];
+  const issues = Array.isArray(finalIssues)
+    ? finalIssues
+    : analyses.flatMap((item) => (item.report?.issues || []));
+
+  analysisIssues.innerHTML = "";
+
+  if (!issues.length) {
+    analysisIssues.innerHTML = "<div class=\"issue-card\">No issues flagged yet.</div>";
+    return;
+  }
+
+  issues.slice(0, 8).forEach((issue) => {
+    const severity = String(issue.severity || "unknown").toLowerCase();
+    const title = issue.title || "Issue";
+    const detail = issue.detail || issue.message || "";
+    const source = issue.source || issue.type || "";
+    const card = document.createElement("div");
+    card.className = "issue-card";
+    card.innerHTML = `
+      <div class="issue-header">
+        <span class="issue-badge ${escapeHtml(severity)}">${escapeHtml(severity)}</span>
+        <strong>${escapeHtml(title)}</strong>
+      </div>
+      <div class="issue-body">${escapeHtml(detail)}</div>
+      <div class="issue-meta">${escapeHtml(source)}</div>
+    `;
+    analysisIssues.appendChild(card);
+  });
 }
 
 function renderAutonomy(analysis) {

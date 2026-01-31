@@ -21,7 +21,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Marker input via shortcut + annotation overlay.
 - [x] Persist session list locally and sync to backend. (popup syncs list)
 - [x] Web playback with timeline + logs + annotations + chat UI.
-- [~] AI per chunk with aggregated report. (ADK agents with filtered inputs)
+- [x] AI per chunk with aggregated report. (ADK agents with filtered inputs + checkpoint context)
 - [~] Resumable uploads. (GCS resumable supported)
 - [~] Tab switch + idle handling. (auto-pause with resume prompt)
 - [~] GCS storage + signed URLs. (supported via env)
@@ -82,9 +82,9 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 
 ## 08 — AI Orchestration (`plan/08-ai-orchestration.md`)
 - [x] ADK Python multi-agent pipeline. (ai/adk_orchestrator.py)
-- [~] Per-chunk analysis workflow. (log/video/repro agents wired)
-- [~] Video analysis. (ADK multimodal prompt)
-- [~] Repro planner / synthesizer. (ADK agents)
+- [x] Per-chunk analysis workflow. (log/video/repro agents wired)
+- [x] Video analysis. (ADK multimodal prompt)
+- [x] Repro planner / synthesizer. (ADK agents + checkpoint context)
 - [ ] Playwright generator + verifier. (deferred)
 - [~] Script export. (Playwright stub)
 
@@ -92,11 +92,11 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Capture MVP. (core capture + ingest works)
 - [x] Playback MVP. (timeline + logs + overlays)
 - [~] AI MVP. (heuristics + ADK)
-- [~] Polish (idle resume, annotations, chat, badges).
+- [~] Polish (idle resume, annotations, chat, badges). (issue severity badges added)
 
 ## 10 — Hackathon Compliance (`plan/10-hackathon-compliance.md`)
 - [x] Gemini 3 API usage. (ADK defaults to Gemini 3 models)
-- [ ] Submission artifacts (demo video, public link, writeup).
+- [~] Submission artifacts (demo video, public link, writeup). (draft docs in docs/)
 - [x] Marathon agent requirements (autonomy timeline in UI, checkpoints persisted).
 
 ## 11 — Demo Script (`plan/11-demo-script.md`)
