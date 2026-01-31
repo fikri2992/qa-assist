@@ -159,7 +159,7 @@
       scrollY: type === "scroll" ? window.scrollY : undefined
     };
 
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       type: "INTERACTION",
       event: {
         ts: new Date().toISOString(),
@@ -167,6 +167,18 @@
         payload
       }
     });
+  }
+
+  function safeSendMessage(message, callback) {
+    if (!chrome?.runtime?.id) return;
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        if (chrome.runtime?.lastError) return;
+        if (callback) callback(response);
+      });
+    } catch {
+      // extension context may be invalidated on reload
+    }
   }
 
   function openAnnotation() {
@@ -197,7 +209,7 @@
     saveBtn.addEventListener("click", () => {
       const text = textarea.value.trim();
       if (!text) return;
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         type: "ANNOTATION_SUBMIT",
         payload: {
           text,
@@ -264,7 +276,7 @@
     saveBtn.addEventListener("click", () => {
       const label = input.value.trim();
       if (!label) return;
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         type: "MARKER_SUBMIT",
         payload: {
           label,
@@ -379,7 +391,7 @@
     const dismissBtn = resumeEl.querySelector(".dismiss");
 
     resumeBtn.addEventListener("click", () => {
-      chrome.runtime.sendMessage({ type: "RESUME_REQUEST" });
+      safeSendMessage({ type: "RESUME_REQUEST" });
       hideResumePrompt();
     });
 
@@ -425,11 +437,11 @@
       (event) => {
         if (type === "mousemove") {
           lastPointer = { x: event.clientX, y: event.clientY };
-          chrome.runtime.sendMessage({ type: "ACTIVITY" });
+          safeSendMessage({ type: "ACTIVITY" });
           return;
         }
 
-        chrome.runtime.sendMessage({ type: "ACTIVITY" });
+        safeSendMessage({ type: "ACTIVITY" });
         sendInteraction(type, event);
       },
       { passive: true, capture: true }
