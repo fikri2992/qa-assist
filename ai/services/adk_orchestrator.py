@@ -45,8 +45,9 @@ class AdkOrchestrator:
             instruction=(
                 "You analyze console and network events. Return JSON with keys: "
                 "summary (string), issues (array), evidence (array). "
-                "Issues should include title, severity, detail, ts, source. "
-                "Evidence should include type, message or url/status, ts."
+                "Issues should include title, severity (low/medium/high), detail, ts, source, category. "
+                "Evidence should include type, message or url/status, ts. "
+                "Use checkpoint context to avoid duplicates and to note recurring errors."
             ),
         )
         self.video_agent = LlmAgent(
@@ -55,8 +56,9 @@ class AdkOrchestrator:
             instruction=(
                 "You analyze recorded UI video for visual/UI/UX issues. "
                 "Return JSON with keys: summary (string), issues (array), evidence (array). "
-                "Evidence should include timestamp or range if possible. "
-                "If no issues, return empty arrays."
+                "Issues should include title, severity (low/medium/high), detail, timestamp_start, timestamp_end, "
+                "ui_area, confidence. Evidence should include timestamp or range if possible. "
+                "If video_url is missing, explain that video could not be analyzed and return empty arrays."
             ),
         )
         self.repro_agent = LlmAgent(
@@ -65,7 +67,7 @@ class AdkOrchestrator:
             instruction=(
                 "You derive reproduction steps from interaction events and notes. "
                 "Return JSON with keys: summary (string), repro_steps (array of strings). "
-                "Include expected vs actual when possible in step text."
+                "Include expected vs actual when possible in step text, and include relevant URLs."
             ),
         )
         self.synth_agent = LlmAgent(
@@ -73,7 +75,8 @@ class AdkOrchestrator:
             model=self.text_model,
             instruction=(
                 "You consolidate findings into a short summary and suspected root cause. "
-                "Return JSON with keys: summary (string), suspected_root_cause (string)."
+                "Return JSON with keys: summary (string), suspected_root_cause (string), "
+                "severity_breakdown (object), top_issues (array)."
             ),
         )
 
@@ -141,6 +144,7 @@ class AdkOrchestrator:
             "issues": issues,
             "repro_steps": repro_steps,
             "environment": session.get("metadata", {}),
+            "checkpoint": payload.get("checkpoint", {}),
         }
         synth = await self._call_agent(self.synth_agent, synth_payload, "Summarize findings.")
 
@@ -293,7 +297,9 @@ class AdkOrchestrator:
             "session": payload.get("session"),
             "chunk": payload.get("chunk"),
             "video_url": payload.get("video_url"),
-            "events": self._filter_events(payload.get("events", []), {"marker", "annotation"}),
+            "events": self._filter_events(
+                payload.get("events", []), {"marker", "annotation", "interaction"}
+            ),
             "checkpoint": payload.get("checkpoint", {}),
         }
 
