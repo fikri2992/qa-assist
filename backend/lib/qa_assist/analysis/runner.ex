@@ -6,6 +6,7 @@ defmodule QaAssist.Analysis.Runner do
   alias QaAssist.Recording.Event
   alias QaAssist.Recording.Session
   alias QaAssist.Repo
+  alias QaAssist.Storage
 
   def run_chunk(%Chunk{} = chunk) do
     Analysis.record_chunk_running(chunk)
@@ -28,6 +29,23 @@ defmodule QaAssist.Analysis.Runner do
     end
   end
 
+  def run_session(%Session{} = session) do
+    chunks = Analysis.list_chunk_reports(session.id)
+
+    payload = %{
+      session: serialize_session(session),
+      chunk_reports: chunks
+    }
+
+    case call_ai(payload, "/aggregate") do
+      {:ok, report} ->
+        Analysis.record_session_report(session, report)
+
+      {:error, reason} ->
+        Analysis.record_session_failure(session, reason)
+    end
+  end
+
   defp load_events(%Chunk{} = chunk) do
     query =
       if chunk.start_ts && chunk.end_ts do
@@ -44,8 +62,8 @@ defmodule QaAssist.Analysis.Runner do
     Repo.all(query)
   end
 
-  defp call_ai(payload) do
-    url = analysis_url()
+  defp call_ai(payload, path \\ "/analyze") do
+    url = analysis_url(path)
 
     case Req.post(url, json: payload) do
       {:ok, %{status: 200, body: body}} -> {:ok, body}
@@ -54,10 +72,10 @@ defmodule QaAssist.Analysis.Runner do
     end
   end
 
-  defp analysis_url do
+  defp analysis_url(path) do
     config = Application.get_env(:qa_assist, :analysis_service, [])
     base = Keyword.get(config, :url, "http://localhost:8000")
-    String.trim_trailing(base, "/") <> "/analyze"
+    String.trim_trailing(base, "/") <> path
   end
 
   defp serialize_session(nil), do: %{}
@@ -81,6 +99,7 @@ defmodule QaAssist.Analysis.Runner do
       start_ts: chunk.start_ts,
       end_ts: chunk.end_ts,
       gcs_uri: chunk.gcs_uri,
+      video_url: Storage.media_url(chunk.gcs_uri),
       status: chunk.status,
       analysis_status: chunk.analysis_status
     }

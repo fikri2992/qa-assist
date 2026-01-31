@@ -60,6 +60,26 @@ defmodule QaAssistWeb.SessionController do
     end
   end
 
+  def pause(conn, %{"id" => id}) do
+    with {:ok, session} <- load_session(id),
+         {:ok, updated} <- Recording.pause_session(session) do
+      json(conn, %{session: session_payload(updated)})
+    else
+      {:error, :not_found} -> ControllerHelpers.send_error(conn, 404, "session not found")
+      {:error, _} -> ControllerHelpers.send_error(conn, 400, "failed to pause session")
+    end
+  end
+
+  def resume(conn, %{"id" => id}) do
+    with {:ok, session} <- load_session(id),
+         {:ok, updated} <- Recording.resume_session(session) do
+      json(conn, %{session: session_payload(updated)})
+    else
+      {:error, :not_found} -> ControllerHelpers.send_error(conn, 404, "session not found")
+      {:error, _} -> ControllerHelpers.send_error(conn, 400, "failed to resume session")
+    end
+  end
+
   def show(conn, %{"id" => id}) do
     with {:ok, session} <- load_session(id) do
       chunks = Recording.list_chunks(session.id)

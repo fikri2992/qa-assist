@@ -6,6 +6,7 @@ const state = {
   deviceId: null,
   sessionId: null,
   recording: false,
+  status: "idle",
   apiBase: DEFAULT_API_BASE,
   chunkIndex: 0,
   currentTabId: null,
@@ -21,11 +22,15 @@ async function loadState() {
     "qa_device_id",
     "qa_session_id",
     "qa_recording",
+    "qa_status",
+    "qa_chunk_index",
     "qa_api_base"
   ]);
   state.deviceId = stored.qa_device_id || null;
   state.sessionId = stored.qa_session_id || null;
   state.recording = stored.qa_recording || false;
+  state.status = stored.qa_status || (state.recording ? "recording" : "idle");
+  state.chunkIndex = stored.qa_chunk_index || 0;
   state.apiBase = stored.qa_api_base || DEFAULT_API_BASE;
 }
 
@@ -34,6 +39,8 @@ async function persistState() {
     qa_device_id: state.deviceId,
     qa_session_id: state.sessionId,
     qa_recording: state.recording,
+    qa_status: state.status,
+    qa_chunk_index: state.chunkIndex,
     qa_api_base: state.apiBase
   });
 }
@@ -95,6 +102,16 @@ async function startSession() {
   await apiFetch(`/sessions/${state.sessionId}/start`, { method: "POST" });
 }
 
+async function pauseSession() {
+  if (!state.sessionId) return;
+  await apiFetch(`/sessions/${state.sessionId}/pause`, { method: "POST" });
+}
+
+async function resumeSession() {
+  if (!state.sessionId) return;
+  await apiFetch(`/sessions/${state.sessionId}/resume`, { method: "POST" });
+}
+
 async function stopSession() {
   if (!state.sessionId) return;
   await apiFetch(`/sessions/${state.sessionId}/stop`, { method: "POST" });
@@ -141,7 +158,8 @@ async function startCapture(tabId) {
     type: "OFFSCREEN_START",
     streamId,
     sessionId: state.sessionId,
-    chunkDurationMs: CHUNK_DURATION_MS
+    chunkDurationMs: CHUNK_DURATION_MS,
+    chunkStartIndex: state.chunkIndex
   });
 }
 
@@ -191,10 +209,17 @@ async function startRecording(apiBaseOverride) {
   if (!tab) return;
 
   await ensureDevice();
-  await createSession(tab);
-  await startSession();
+  if (state.sessionId && state.status === "paused") {
+    await resumeSession();
+    const details = await apiFetch(`/sessions/${state.sessionId}`);
+    state.chunkIndex = details?.chunks?.length || state.chunkIndex;
+  } else {
+    await createSession(tab);
+    await startSession();
+  }
 
   state.recording = true;
+  state.status = "recording";
   state.currentTabId = tab.id;
   state.lastUrl = tab.url || null;
   state.lastActivity = Date.now();
@@ -216,9 +241,33 @@ async function startRecording(apiBaseOverride) {
 
 async function stopRecording() {
   await loadState();
+  if (!state.sessionId) return;
+
+  const wasRecording = state.recording;
+  state.recording = false;
+  state.status = "ended";
+  state.sessionId = null;
+  await persistState();
+
+  if (wasRecording && state.currentTabId) {
+    await detachDebugger(state.currentTabId);
+  }
+
+  if (wasRecording) {
+    await stopCapture();
+  }
+  await flushEvents();
+  await stopSession();
+
+  notifyStatus("Stopped");
+}
+
+async function pauseRecording() {
+  await loadState();
   if (!state.recording) return;
 
   state.recording = false;
+  state.status = "paused";
   await persistState();
 
   if (state.currentTabId) {
@@ -227,9 +276,9 @@ async function stopRecording() {
 
   await stopCapture();
   await flushEvents();
-  await stopSession();
+  await pauseSession();
 
-  notifyStatus("Stopped");
+  notifyStatus("Paused");
 }
 
 async function handleAutoPause(reason) {
@@ -238,7 +287,7 @@ async function handleAutoPause(reason) {
     type: "marker",
     payload: { message: `Auto-paused: ${reason}` }
   });
-  await stopRecording();
+  await pauseRecording();
 }
 
 function notifyStatus(value) {
@@ -329,6 +378,9 @@ async function handleChunkData(message) {
       content_type: message.mimeType
     })
   });
+
+  state.chunkIndex = message.chunkIndex + 1;
+  await persistState();
 
   const uploadUrl = chunkResponse.upload_url;
   const uploadMethod = chunkResponse.upload_method || "POST";

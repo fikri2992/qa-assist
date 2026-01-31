@@ -3,14 +3,23 @@ const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const statusEl = document.getElementById("status");
 
-chrome.storage.local.get(["qa_api_base", "qa_recording"], (state) => {
+chrome.storage.local.get(["qa_api_base", "qa_recording", "qa_status"], (state) => {
   apiBaseInput.value = state.qa_api_base || "http://localhost:4000/api";
-  updateStatus(state.qa_recording ? "Recording" : "Idle");
+  if (state.qa_status) {
+    updateStatus(capitalize(state.qa_status));
+  } else {
+    updateStatus(state.qa_recording ? "Recording" : "Idle");
+  }
 });
 
 function updateStatus(text) {
   statusEl.textContent = text;
   statusEl.dataset.status = String(text || "").toLowerCase();
+}
+
+function capitalize(value) {
+  if (!value) return "";
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 startBtn.addEventListener("click", () => {

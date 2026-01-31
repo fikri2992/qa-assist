@@ -4,6 +4,7 @@ defmodule QaAssist.Analysis do
   alias QaAssist.Analysis.Analysis
   alias QaAssist.Analysis.Runner
   alias QaAssist.Recording.Chunk
+  alias QaAssist.Recording.Session
   alias QaAssist.Repo
 
   def enqueue_chunk(%Chunk{} = chunk) do
@@ -54,6 +55,45 @@ defmodule QaAssist.Analysis do
     :ok
   end
 
+  def enqueue_session(%Session{} = session) do
+    Task.Supervisor.start_child(QaAssist.TaskSupervisor, fn ->
+      Runner.run_session(session)
+    end)
+
+    :ok
+  end
+
+  def record_session_report(%Session{} = session, report) when is_map(report) do
+    Repo.insert!(%Analysis{
+      session_id: session.id,
+      chunk_id: nil,
+      status: "done",
+      report: report
+    })
+
+    :ok
+  end
+
+  def record_session_failure(%Session{} = session, reason) do
+    Repo.insert!(%Analysis{
+      session_id: session.id,
+      chunk_id: nil,
+      status: "failed",
+      report: %{error: reason}
+    })
+
+    :ok
+  end
+
+  def list_chunk_reports(session_id) do
+    from(a in Analysis,
+      where: a.session_id == ^session_id and not is_nil(a.chunk_id),
+      order_by: [asc: a.inserted_at]
+    )
+    |> Repo.all()
+    |> Enum.map(& &1.report)
+  end
+
   def get_session_report(session_id) do
     analyses =
       from(a in Analysis, where: a.session_id == ^session_id, order_by: [asc: a.inserted_at])
@@ -63,7 +103,8 @@ defmodule QaAssist.Analysis do
       session_id: session_id,
       status: session_status(analyses),
       summary: build_summary(analyses),
-      analyses: Enum.map(analyses, &analysis_payload/1)
+      analyses: Enum.map(analyses, &analysis_payload/1),
+      final_report: latest_session_report(analyses)
     }
   end
 
@@ -97,5 +138,15 @@ defmodule QaAssist.Analysis do
       report: analysis.report,
       created_at: analysis.inserted_at
     }
+  end
+
+  defp latest_session_report(analyses) do
+    analyses
+    |> Enum.filter(fn analysis -> is_nil(analysis.chunk_id) end)
+    |> List.last()
+    |> case do
+      nil -> nil
+      analysis -> analysis.report
+    end
   end
 end

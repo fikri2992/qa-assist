@@ -37,6 +37,26 @@ defmodule QaAssist.Recording do
     session
     |> Session.changeset(%{status: "ended", ended_at: DateTime.utc_now()})
     |> Repo.update()
+    |> case do
+      {:ok, updated} ->
+        Analysis.enqueue_session(updated)
+        {:ok, updated}
+
+      error ->
+        error
+    end
+  end
+
+  def pause_session(%Session{} = session) do
+    session
+    |> Session.changeset(%{status: "paused", idle_paused_at: DateTime.utc_now()})
+    |> Repo.update()
+  end
+
+  def resume_session(%Session{} = session) do
+    session
+    |> Session.changeset(%{status: "recording", idle_paused_at: nil})
+    |> Repo.update()
   end
 
   def get_session(id) do

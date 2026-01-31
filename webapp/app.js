@@ -7,6 +7,8 @@ const sessionMeta = document.getElementById("sessionMeta");
 const sessionStatus = document.getElementById("sessionStatus");
 const videoPlayer = document.getElementById("videoPlayer");
 const chunkList = document.getElementById("chunkList");
+const timelineTrack = document.getElementById("timelineTrack");
+const timelinePins = document.getElementById("timelinePins");
 const logPane = document.getElementById("logPane");
 const eventPane = document.getElementById("eventPane");
 const analysisPane = document.getElementById("analysisPane");
@@ -20,6 +22,9 @@ const storedDeviceId = localStorage.getItem("qa_device_id") || "";
 
 apiBaseInput.value = storedApiBase;
 deviceIdInput.value = storedDeviceId;
+
+let currentChunks = [];
+let currentChunkIndex = 0;
 
 function setStatus(text) {
   sessionStatus.textContent = text || "";
@@ -87,17 +92,23 @@ async function selectSession(sessionId, apiBase, selectedItem) {
   try {
     const session = await fetchJson(`${apiBase}/sessions/${sessionId}`);
     const analysis = await fetchJson(`${apiBase}/sessions/${sessionId}/analysis`);
-    const events = await fetchJson(`${apiBase}/sessions/${sessionId}/events?limit=500`);
+    const events = await fetchJson(`${apiBase}/sessions/${sessionId}/events?limit=1000`);
 
     sessionMeta.textContent = `Started ${formatDate(session.started_at)} · ${session.chunks.length} chunks`;
     setStatus(session.status);
 
-    renderChunks(session.chunks);
-    renderVideo(session.chunks);
-    renderEvents(events);
-    renderLogs(events);
-    renderMarkers(events);
-    renderAnnotations(events);
+    const orderedEvents = events.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
+
+    currentChunks = session.chunks.slice().sort((a, b) => a.idx - b.idx);
+    currentChunkIndex = 0;
+
+    renderChunks(currentChunks);
+    setCurrentChunk(0);
+    renderTimeline(session, currentChunks, orderedEvents);
+    renderEvents(orderedEvents);
+    renderLogs(orderedEvents);
+    renderMarkers(orderedEvents);
+    renderAnnotations(orderedEvents);
     renderAnalysis(analysis);
   } catch (err) {
     sessionMeta.textContent = err.message;
@@ -107,21 +118,102 @@ async function selectSession(sessionId, apiBase, selectedItem) {
 
 function renderChunks(chunks) {
   chunkList.innerHTML = "";
-  chunks.forEach((chunk) => {
+  chunks.forEach((chunk, index) => {
     const pill = document.createElement("div");
     pill.className = "chunk-pill";
     pill.textContent = `#${chunk.idx} · ${chunk.status} · ${chunk.analysis_status}`;
+    pill.addEventListener("click", () => setCurrentChunk(index));
     chunkList.appendChild(pill);
   });
 }
 
-function renderVideo(chunks) {
-  const firstReady = chunks.find((chunk) => chunk.video_url);
-  if (firstReady) {
-    videoPlayer.src = firstReady.video_url;
-  } else {
+function setCurrentChunk(index) {
+  if (!currentChunks.length) {
     videoPlayer.removeAttribute("src");
+    return;
   }
+  currentChunkIndex = Math.max(0, Math.min(index, currentChunks.length - 1));
+  const chunk = currentChunks[currentChunkIndex];
+  if (chunk?.video_url) {
+    videoPlayer.src = chunk.video_url;
+  }
+
+  highlightTimeline();
+}
+
+function highlightTimeline() {
+  const segments = timelineTrack.querySelectorAll(".timeline-segment");
+  segments.forEach((segment, index) => {
+    segment.classList.toggle("active", index === currentChunkIndex);
+  });
+}
+
+function renderTimeline(session, chunks, events) {
+  timelineTrack.innerHTML = "";
+  timelinePins.innerHTML = "";
+
+  if (!chunks.length) return;
+
+  const { start, end } = getSessionWindow(session, chunks, events);
+  const total = Math.max(end - start, 1);
+
+  chunks.forEach((chunk, index) => {
+    const duration = getDuration(chunk, 1);
+    const widthPercent = (duration / total) * 100;
+    const segment = document.createElement("div");
+    segment.className = "timeline-segment";
+    segment.style.width = `${widthPercent}%`;
+    segment.title = `Chunk ${chunk.idx}`;
+    segment.addEventListener("click", () => setCurrentChunk(index));
+    timelineTrack.appendChild(segment);
+  });
+
+  highlightTimeline();
+
+  events.forEach((event) => {
+    if (!event.ts) return;
+    const time = new Date(event.ts).getTime();
+    const left = ((time - start) / total) * 100;
+    if (left < 0 || left > 100) return;
+
+    if (event.type === "marker" || event.type === "annotation") {
+      const pin = document.createElement("div");
+      pin.className = `timeline-pin ${event.type === "annotation" ? "annotation" : ""}`;
+      pin.style.left = `calc(${left}% - 5px)`;
+      pin.title = event.type === "annotation" ? event.payload?.text || "Annotation" : "Marker";
+      timelinePins.appendChild(pin);
+    }
+  });
+}
+
+function getDuration(chunk, fallback) {
+  if (chunk.start_ts && chunk.end_ts) {
+    const start = new Date(chunk.start_ts).getTime();
+    const end = new Date(chunk.end_ts).getTime();
+    const duration = end - start;
+    return duration > 0 ? duration : fallback;
+  }
+  return fallback;
+}
+
+function getSessionWindow(session, chunks, events) {
+  const timestamps = [];
+  if (session.started_at) timestamps.push(new Date(session.started_at).getTime());
+  if (session.ended_at) timestamps.push(new Date(session.ended_at).getTime());
+  chunks.forEach((chunk) => {
+    if (chunk.start_ts) timestamps.push(new Date(chunk.start_ts).getTime());
+    if (chunk.end_ts) timestamps.push(new Date(chunk.end_ts).getTime());
+  });
+  events.forEach((event) => {
+    if (event.ts) timestamps.push(new Date(event.ts).getTime());
+  });
+
+  const start = Math.min(...timestamps);
+  const end = Math.max(...timestamps);
+  return {
+    start: Number.isFinite(start) ? start : Date.now(),
+    end: Number.isFinite(end) ? end : Date.now() + 1
+  };
 }
 
 function renderEvents(events) {
@@ -146,7 +238,7 @@ function renderMarkers(events) {
   markers.forEach((marker) => {
     const card = document.createElement("div");
     card.className = "marker-card";
-    const label = marker.payload?.label || "Marker";
+    const label = marker.payload?.label || marker.payload?.message || "Marker";
     card.innerHTML = `
       <h4>${label}</h4>
       <div>${formatDate(marker.ts)}</div>
@@ -189,5 +281,11 @@ function escapeHtml(value) {
     .replaceAll("\"", "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+videoPlayer.addEventListener("ended", () => {
+  if (currentChunkIndex < currentChunks.length - 1) {
+    setCurrentChunk(currentChunkIndex + 1);
+  }
+});
 
 loadSessionsBtn.addEventListener("click", loadSessions);

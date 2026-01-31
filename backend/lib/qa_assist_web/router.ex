@@ -20,6 +20,8 @@ defmodule QaAssistWeb.Router do
     post "/sessions", SessionController, :create
     post "/sessions/:id/start", SessionController, :start
     post "/sessions/:id/stop", SessionController, :stop
+    post "/sessions/:id/pause", SessionController, :pause
+    post "/sessions/:id/resume", SessionController, :resume
     get "/sessions/:id", SessionController, :show
 
     post "/sessions/:id/chunks", ChunkController, :create

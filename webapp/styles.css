@@ -214,6 +214,59 @@ body {
   padding: 12px;
 }
 
+.timeline {
+  position: relative;
+  height: 46px;
+  margin-top: 12px;
+  background: #0a0f18;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  overflow: hidden;
+}
+
+.timeline-track {
+  display: flex;
+  height: 100%;
+}
+
+.timeline-segment {
+  position: relative;
+  height: 100%;
+  border-right: 1px solid rgba(148, 163, 184, 0.15);
+  background: linear-gradient(120deg, rgba(249, 115, 22, 0.15), rgba(15, 23, 42, 0.8));
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.timeline-segment.active {
+  background: linear-gradient(120deg, rgba(249, 115, 22, 0.45), rgba(15, 23, 42, 0.9));
+}
+
+.timeline-segment:hover {
+  transform: translateY(-2px);
+}
+
+.timeline-pins {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.timeline-pin {
+  position: absolute;
+  top: 6px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #facc15;
+  box-shadow: 0 0 10px rgba(250, 204, 21, 0.6);
+}
+
+.timeline-pin.annotation {
+  background: #60a5fa;
+  box-shadow: 0 0 10px rgba(96, 165, 250, 0.6);
+}
+
 video {
   width: 100%;
   max-height: 420px;

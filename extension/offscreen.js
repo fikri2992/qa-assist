@@ -18,7 +18,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 });
 
-async function startRecording({ streamId, chunkDurationMs }) {
+async function startRecording({ streamId, chunkDurationMs, chunkStartIndex }) {
   if (isRecording) return;
 
   streamRef = await navigator.mediaDevices.getUserMedia({
@@ -37,7 +37,7 @@ async function startRecording({ streamId, chunkDurationMs }) {
 
   mediaRecorder = new MediaRecorder(streamRef, { mimeType });
   isRecording = true;
-  chunkIndex = 0;
+  chunkIndex = Number.isFinite(chunkStartIndex) ? chunkStartIndex : 0;
   currentChunkStart = Date.now();
 
   mediaRecorder.ondataavailable = async (event) => {
