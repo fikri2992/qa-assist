@@ -8,9 +8,15 @@ const openWebBtn = document.getElementById("openWeb");
 
 const defaultWebUrl = chrome.runtime.getURL("webapp/index.html");
 
+function shouldUsePackaged(url) {
+  if (!url) return true;
+  return /localhost:5173|127\.0\.0\.1:5173/.test(url);
+}
+
 chrome.storage.local.get(["qa_api_base", "qa_recording", "qa_status", "qa_web_url"], (state) => {
   apiBaseInput.value = state.qa_api_base || "http://localhost:4000/api";
-  webUrlInput.value = state.qa_web_url || defaultWebUrl;
+  const storedWebUrl = state.qa_web_url;
+  webUrlInput.value = shouldUsePackaged(storedWebUrl) ? defaultWebUrl : storedWebUrl;
   if (state.qa_status) {
     updateStatus(capitalize(state.qa_status));
   } else {
@@ -56,7 +62,7 @@ stopBtn.addEventListener("click", () => {
 
 openWebBtn.addEventListener("click", () => {
   const raw = webUrlInput.value.trim();
-  const url = raw ? normalizeUrl(raw) : defaultWebUrl;
+  const url = shouldUsePackaged(raw) ? defaultWebUrl : normalizeUrl(raw);
   chrome.storage.local.set({ qa_web_url: url });
   chrome.tabs.create({ url });
 });
