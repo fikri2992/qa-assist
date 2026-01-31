@@ -9,6 +9,7 @@ const videoPlayer = document.getElementById("videoPlayer");
 const chunkList = document.getElementById("chunkList");
 const timelineTrack = document.getElementById("timelineTrack");
 const timelinePins = document.getElementById("timelinePins");
+const annotationOverlay = document.getElementById("annotationOverlay");
 const logPane = document.getElementById("logPane");
 const eventPane = document.getElementById("eventPane");
 const analysisPane = document.getElementById("analysisPane");
@@ -26,6 +27,8 @@ deviceIdInput.value = storedDeviceId;
 
 let currentChunks = [];
 let currentChunkIndex = 0;
+let currentEvents = [];
+let currentSession = null;
 
 function setStatus(text) {
   sessionStatus.textContent = text || "";
@@ -101,8 +104,10 @@ async function selectSession(sessionId, apiBase, selectedItem) {
 
     const orderedEvents = events.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
 
+    currentSession = session;
     currentChunks = session.chunks.slice().sort((a, b) => a.idx - b.idx);
     currentChunkIndex = 0;
+    currentEvents = orderedEvents;
 
     renderChunks(currentChunks);
     setCurrentChunk(0);
@@ -143,6 +148,7 @@ function setCurrentChunk(index) {
 
   highlightTimeline();
   highlightChunks();
+  renderOverlay();
 }
 
 function highlightTimeline() {
@@ -281,6 +287,49 @@ function renderAnnotations(events) {
   });
 }
 
+function renderOverlay() {
+  annotationOverlay.innerHTML = "";
+  if (!currentSession || !currentChunks.length) return;
+
+  const chunk = currentChunks[currentChunkIndex];
+  if (!chunk?.start_ts || !chunk?.end_ts) return;
+  const start = new Date(chunk.start_ts).getTime();
+  const end = new Date(chunk.end_ts).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+
+  const relevant = currentEvents.filter((event) => {
+    if (!event.ts) return false;
+    if (event.type !== "annotation" && event.type !== "marker") return false;
+    const ts = new Date(event.ts).getTime();
+    return ts >= start && ts <= end;
+  });
+
+  const rect = videoPlayer.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+
+  relevant.forEach((event) => {
+    const payload = event.payload || {};
+    const viewport = payload.viewport || currentSession?.metadata?.viewport;
+    const x = payload.x;
+    const y = payload.y;
+    if (!viewport || typeof x !== "number" || typeof y !== "number") return;
+
+    const left = (x / viewport.width) * 100;
+    const top = (y / viewport.height) * 100;
+    if (!Number.isFinite(left) || !Number.isFinite(top)) return;
+
+    const pin = document.createElement("div");
+    pin.className = `overlay-pin ${event.type === "marker" ? "marker" : ""}`;
+    pin.style.left = `${left}%`;
+    pin.style.top = `${top}%`;
+    pin.dataset.label =
+      event.type === "annotation"
+        ? payload.text || "Annotation"
+        : payload.label || payload.message || "Marker";
+    annotationOverlay.appendChild(pin);
+  });
+}
+
 function renderArtifacts(artifacts, apiBase) {
   artifactList.innerHTML = "";
   if (!artifacts.length) {
@@ -320,5 +369,8 @@ videoPlayer.addEventListener("ended", () => {
     setCurrentChunk(currentChunkIndex + 1);
   }
 });
+
+videoPlayer.addEventListener("loadedmetadata", renderOverlay);
+window.addEventListener("resize", renderOverlay);
 
 loadSessionsBtn.addEventListener("click", loadSessions);

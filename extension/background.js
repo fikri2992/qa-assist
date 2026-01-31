@@ -81,14 +81,18 @@ async function ensureDevice() {
   return state.deviceId;
 }
 
-async function createSession(tab) {
+async function createSession(tab, env) {
   const response = await apiFetch("/sessions", {
     method: "POST",
     body: JSON.stringify({
       metadata: {
         url: tab.url,
         title: tab.title,
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent,
+        viewport: env?.viewport,
+        screen: env?.screen,
+        platform: env?.platform,
+        language: env?.language
       }
     })
   });
@@ -96,6 +100,15 @@ async function createSession(tab) {
   state.sessionId = response.session.id;
   state.chunkIndex = 0;
   await persistState();
+
+  await addSessionEntry({
+    id: response.session.id,
+    url: tab.url,
+    title: tab.title,
+    started_at: response.session.started_at,
+    status: response.session.status,
+    metadata: response.session.metadata
+  });
 }
 
 async function startSession() {
@@ -208,13 +221,16 @@ async function startRecording(apiBaseOverride) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
 
+  const env = await getTabEnvironment(tab.id);
+
   await ensureDevice();
   if (state.sessionId && state.status === "paused") {
     await resumeSession();
     const details = await apiFetch(`/sessions/${state.sessionId}`);
     state.chunkIndex = details?.chunks?.length || state.chunkIndex;
+    await updateSessionEntry(state.sessionId, { status: "recording" });
   } else {
-    await createSession(tab);
+    await createSession(tab, env);
     await startSession();
   }
 
@@ -231,7 +247,15 @@ async function startRecording(apiBaseOverride) {
   enqueueEvent({
     ts: new Date().toISOString(),
     type: "env",
-    payload: { url: tab.url, title: tab.title }
+    payload: {
+      url: tab.url,
+      title: tab.title,
+      viewport: env?.viewport,
+      screen: env?.screen,
+      platform: env?.platform,
+      language: env?.language,
+      userAgent: env?.userAgent || navigator.userAgent
+    }
   });
 
   scheduleIdleCheck();
@@ -243,6 +267,7 @@ async function stopRecording() {
   await loadState();
   if (!state.sessionId) return;
 
+  const sessionId = state.sessionId;
   const wasRecording = state.recording;
   state.recording = false;
   state.status = "ended";
@@ -258,6 +283,7 @@ async function stopRecording() {
   }
   await flushEvents();
   await stopSession();
+  await updateSessionEntry(sessionId, { status: "ended", ended_at: new Date().toISOString() });
 
   notifyStatus("Stopped");
 }
@@ -277,6 +303,7 @@ async function pauseRecording() {
   await stopCapture();
   await flushEvents();
   await pauseSession();
+  await updateSessionEntry(state.sessionId, { status: "paused" });
 
   notifyStatus("Paused");
 }
@@ -318,6 +345,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     enqueueEvent({
       ts: new Date().toISOString(),
       type: "annotation",
+      payload: message.payload
+    });
+  }
+  if (message.type === "MARKER_SUBMIT") {
+    enqueueEvent({
+      ts: new Date().toISOString(),
+      type: "marker",
       payload: message.payload
     });
   }
@@ -433,14 +467,15 @@ loadState();
 
 async function addMarker() {
   const tab = await getActiveTab();
-  const url = tab?.url || state.lastUrl;
-  enqueueEvent({
-    ts: new Date().toISOString(),
-    type: "marker",
-    payload: { label: "Marker", url }
-  });
-
-  if (tab?.id) {
+  if (!tab?.id) return;
+  try {
+    await sendTabMessage(tab.id, { type: "OPEN_MARKER" });
+  } catch {
+    enqueueEvent({
+      ts: new Date().toISOString(),
+      type: "marker",
+      payload: { label: "Marker", url: tab.url || state.lastUrl }
+    });
     chrome.tabs.sendMessage(tab.id, { type: "MARKER_TOAST" });
   }
 }
@@ -461,6 +496,55 @@ async function getActiveTab() {
   }
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab;
+}
+
+async function getTabEnvironment(tabId) {
+  try {
+    const response = await sendTabMessage(tabId, { type: "GET_ENV" });
+    return response?.env || null;
+  } catch {
+    return null;
+  }
+}
+
+function sendTabMessage(tabId, message) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(error);
+      } else {
+        resolve(response);
+      }
+    });
+  });
+}
+
+async function addSessionEntry(entry) {
+  const stored = await chrome.storage.local.get(["qa_sessions"]);
+  const sessions = stored.qa_sessions || [];
+  const next = [
+    {
+      id: entry.id,
+      url: entry.url,
+      title: entry.title,
+      started_at: entry.started_at || new Date().toISOString(),
+      status: entry.status || "recording",
+      metadata: entry.metadata || {}
+    },
+    ...sessions.filter((session) => session.id !== entry.id)
+  ].slice(0, 20);
+  await chrome.storage.local.set({ qa_sessions: next });
+}
+
+async function updateSessionEntry(sessionId, updates) {
+  if (!sessionId) return;
+  const stored = await chrome.storage.local.get(["qa_sessions"]);
+  const sessions = stored.qa_sessions || [];
+  const next = sessions.map((session) =>
+    session.id === sessionId ? { ...session, ...updates } : session
+  );
+  await chrome.storage.local.set({ qa_sessions: next });
 }
 
 async function directUpload(uploadUrl, uploadMethod, uploadHeaders, blob) {

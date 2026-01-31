@@ -49,7 +49,10 @@
           </div>
 
           <div class="video-card">
-            <video id="videoPlayer" controls playsinline></video>
+            <div class="video-shell">
+              <video id="videoPlayer" controls playsinline></video>
+              <div id="annotationOverlay" class="annotation-overlay"></div>
+            </div>
             <div class="timeline">
               <div id="timelineTrack" class="timeline-track"></div>
               <div id="timelinePins" class="timeline-pins"></div>

@@ -1,6 +1,7 @@
 ﻿(() => {
   let lastPointer = { x: 0, y: 0 };
   let annotationEl = null;
+  let markerEl = null;
 
   const style = document.createElement("style");
   style.textContent = `
@@ -26,6 +27,14 @@
     .qa-assist-panel h3 {
       margin: 0 0 10px;
       font-size: 16px;
+    }
+    .qa-assist-panel input {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: #0b1220;
+      color: #f8fafc;
+      padding: 10px;
     }
     .qa-assist-panel textarea {
       width: 100%;
@@ -162,7 +171,12 @@
           x: lastPointer.x,
           y: lastPointer.y,
           scrollX: window.scrollX,
-          scrollY: window.scrollY
+          scrollY: window.scrollY,
+          viewport: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            devicePixelRatio: window.devicePixelRatio
+          }
         }
       });
       closeAnnotation();
@@ -188,10 +202,85 @@
     textarea.focus();
   }
 
+  function openMarker() {
+    if (markerEl) {
+      const input = markerEl.querySelector("input");
+      input?.focus();
+      return;
+    }
+
+    markerEl = document.createElement("div");
+    markerEl.className = "qa-assist-annotate";
+    markerEl.innerHTML = `
+      <div class="qa-assist-panel">
+        <h3>Add marker</h3>
+        <input type="text" placeholder="Marker label" />
+        <div class="qa-assist-actions">
+          <button class="qa-assist-cancel" type="button">Cancel</button>
+          <button class="qa-assist-save" type="button">Save</button>
+        </div>
+      </div>
+    `;
+
+    const input = markerEl.querySelector("input");
+    const cancelBtn = markerEl.querySelector(".qa-assist-cancel");
+    const saveBtn = markerEl.querySelector(".qa-assist-save");
+
+    cancelBtn.addEventListener("click", closeMarker);
+    saveBtn.addEventListener("click", () => {
+      const label = input.value.trim();
+      if (!label) return;
+      chrome.runtime.sendMessage({
+        type: "MARKER_SUBMIT",
+        payload: {
+          label,
+          url: window.location.href,
+          x: lastPointer.x,
+          y: lastPointer.y,
+          scrollX: window.scrollX,
+          scrollY: window.scrollY,
+          viewport: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            devicePixelRatio: window.devicePixelRatio
+          }
+        }
+      });
+      closeMarker();
+      showToast("Marker added");
+    });
+
+    markerEl.addEventListener("click", (event) => {
+      if (event.target === markerEl) {
+        closeMarker();
+      }
+    });
+
+    document.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key === "Escape") {
+          closeMarker();
+        }
+      },
+      { once: true }
+    );
+
+    document.body.appendChild(markerEl);
+    input.focus();
+  }
+
   function closeAnnotation() {
     if (annotationEl) {
       annotationEl.remove();
       annotationEl = null;
+    }
+  }
+
+  function closeMarker() {
+    if (markerEl) {
+      markerEl.remove();
+      markerEl = null;
     }
   }
 
@@ -203,9 +292,35 @@
     setTimeout(() => toast.remove(), 2500);
   }
 
-  chrome.runtime.onMessage.addListener((message) => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message.type === "GET_ENV") {
+      sendResponse({
+        ok: true,
+        env: {
+          viewport: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            devicePixelRatio: window.devicePixelRatio
+          },
+          screen: {
+            width: window.screen.width,
+            height: window.screen.height,
+            availWidth: window.screen.availWidth,
+            availHeight: window.screen.availHeight,
+            colorDepth: window.screen.colorDepth
+          },
+          platform: navigator.platform,
+          language: navigator.language,
+          userAgent: navigator.userAgent
+        }
+      });
+      return;
+    }
     if (message.type === "OPEN_ANNOTATION") {
       openAnnotation();
+    }
+    if (message.type === "OPEN_MARKER") {
+      openMarker();
     }
     if (message.type === "MARKER_TOAST") {
       showToast("Marker added");

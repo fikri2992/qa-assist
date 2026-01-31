@@ -7,8 +7,8 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Capture console logs. (extension/background.js via Debugger API)
 - [x] Capture network logs. (extension/background.js via Debugger API)
 - [x] Capture user interactions. (extension/content.js)
-- [ ] Markers/annotations during session. (UI + shortcuts not implemented)
-- [~] Environment metadata (window/screen size, OS, browser version). (URL/title/userAgent only)
+- [x] Markers/annotations during session. (overlay + shortcuts)
+- [~] Environment metadata (window/screen size, OS, browser version). (viewport/screen/platform added)
 - [x] Store session artifacts in backend. (backend/lib/qa_assist/storage/local.ex)
 - [~] AI analysis per chunk. (stub only)
 - [~] Aggregated report after session end. (summary exists, not gated on session end)
@@ -18,8 +18,8 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] 10-minute chunked video. (extension/background.js)
 - [x] Console + network logs. (extension/background.js)
 - [x] Interaction capture with DOM context. (extension/content.js)
-- [ ] Marker input via shortcut + annotation overlay.
-- [ ] Persist session list locally and sync to backend. (device id only)
+- [x] Marker input via shortcut + annotation overlay.
+- [~] Persist session list locally and sync to backend. (stored locally)
 - [~] Web playback with timeline + logs + annotations + chat UI. (logs only)
 - [~] AI per chunk with aggregated report. (ADK wired, still basic)
 - [ ] Resumable uploads. (not implemented)
@@ -67,8 +67,8 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Interaction capture + DOM context.
 - [~] Idle detection (auto-stop). (no resume)
 - [~] Tab switch handling (auto-stop). (no resume/new chunk)
-- [ ] Markers + annotations overlay.
-- [ ] Session list stored locally. (device id only)
+- [x] Markers + annotations overlay.
+- [~] Session list stored locally. (local storage only)
 
 ## 07 — Web App (`plan/07-webapp.md`)
 - [x] Session list view. (webapp/app.js)
@@ -76,7 +76,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [~] Video playback (multi-chunk timeline UI)
 - [x] Logs panel (console + network)
 - [~] Interaction trail (raw JSON only)
-- [ ] Annotations overlay.
+- [x] Annotations overlay.
 - [ ] Chat UI.
 - [~] Downloadable repro scripts. (Playwright stub)
 
