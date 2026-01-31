@@ -92,7 +92,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Capture MVP. (core capture + ingest works)
 - [x] Playback MVP. (timeline + logs + overlays)
 - [~] AI MVP. (heuristics + ADK)
-- [~] Polish (idle resume, annotations, chat, badges). (issue severity badges added)
+- [~] Polish (idle resume, annotations, chat, badges). (issue severity badges + summary added)
 
 ## 10 — Hackathon Compliance (`plan/10-hackathon-compliance.md`)
 - [x] Gemini 3 API usage. (ADK defaults to Gemini 3 models)

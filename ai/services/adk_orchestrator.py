@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from google.adk.agents import LlmAgent
@@ -27,6 +27,8 @@ class AgentOutput:
     evidence: List[Dict[str, Any]]
     repro_steps: List[str]
     root_cause: Optional[str] = None
+    severity_breakdown: Dict[str, Any] = field(default_factory=dict)
+    top_issues: List[Dict[str, Any]] = field(default_factory=list)
 
 
 class AdkOrchestrator:
@@ -148,9 +150,14 @@ class AdkOrchestrator:
         }
         synth = await self._call_agent(self.synth_agent, synth_payload, "Summarize findings.")
 
+        severity_breakdown = synth.severity_breakdown or self._severity_breakdown(issues)
+        top_issues = synth.top_issues or issues[:5]
+
         report = {
             "summary": synth.summary or "Analysis complete.",
             "suspected_root_cause": synth.root_cause,
+            "severity_breakdown": severity_breakdown,
+            "top_issues": top_issues,
             "issues": issues,
             "evidence": evidence,
             "repro_steps": repro_steps,
@@ -196,8 +203,13 @@ class AdkOrchestrator:
             else "No chunk analysis available."
         )
 
+        severity_breakdown = synth.severity_breakdown or self._severity_breakdown(issues)
+        top_issues = synth.top_issues or issues[:8]
+
         report = {
             "summary": summary,
+            "severity_breakdown": severity_breakdown,
+            "top_issues": top_issues,
             "issues": issues,
             "evidence": evidence,
             "repro_steps": steps,
@@ -317,6 +329,15 @@ class AdkOrchestrator:
         filtered = [event for event in events if event.get("type") in allowed]
         return self._trim_events(filtered, limit=200)
 
+    def _severity_breakdown(self, issues: List[Dict[str, Any]]) -> Dict[str, int]:
+        breakdown = {"high": 0, "medium": 0, "low": 0, "unknown": 0}
+        for issue in issues or []:
+            severity = str(issue.get("severity", "unknown")).lower()
+            if severity not in breakdown:
+                severity = "unknown"
+            breakdown[severity] += 1
+        return breakdown
+
     def _checkpoint_context(self, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
         if not checkpoint:
             return {}
@@ -351,6 +372,8 @@ class AdkOrchestrator:
         issues = parsed.get("issues")
         evidence = parsed.get("evidence")
         repro_steps = parsed.get("repro_steps")
+        severity_breakdown = parsed.get("severity_breakdown")
+        top_issues = parsed.get("top_issues")
         return AgentOutput(
             name=agent.name,
             summary=str(parsed.get("summary", "")),
@@ -358,6 +381,8 @@ class AdkOrchestrator:
             evidence=evidence if isinstance(evidence, list) else [],
             repro_steps=repro_steps if isinstance(repro_steps, list) else [],
             root_cause=parsed.get("suspected_root_cause"),
+            severity_breakdown=severity_breakdown if isinstance(severity_breakdown, dict) else {},
+            top_issues=top_issues if isinstance(top_issues, list) else [],
         )
 
     async def _run_agent_with_payload(self, agent: LlmAgent, prompt: str, payload: Dict[str, Any]) -> str:
@@ -420,6 +445,8 @@ class AdkOrchestrator:
             "evidence": output.evidence,
             "repro_steps": output.repro_steps,
             "suspected_root_cause": output.root_cause,
+            "severity_breakdown": output.severity_breakdown,
+            "top_issues": output.top_issues,
         }
 
     def _run_sync(self, coro):

@@ -182,6 +182,9 @@
   .pointer-events-none {
     pointer-events: none;
   }
+  .visible {
+    visibility: visible;
+  }
   .absolute {
     position: absolute;
   }
@@ -896,6 +899,41 @@ body {
 .issue-meta {
   color: #64748b;
   font-size: 11px;
+}
+.analysis-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.analysis-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.08);
+  color: #cbd5f5;
+}
+.analysis-badge.high {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #fca5a5;
+}
+.analysis-badge.medium {
+  background: rgba(251, 146, 60, 0.18);
+  border-color: rgba(251, 146, 60, 0.35);
+  color: #fdba74;
+}
+.analysis-badge.low {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.35);
+  color: #86efac;
+}
+.analysis-badge.unknown {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.3);
+  color: #cbd5f5;
 }
 @property --tw-rotate-x {
   syntax: "*";

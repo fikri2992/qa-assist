@@ -14,6 +14,7 @@ const logPane = document.getElementById("logPane");
 const eventPane = document.getElementById("eventPane");
 const analysisPane = document.getElementById("analysisPane");
 const analysisSummary = document.getElementById("analysisSummary");
+const analysisBadges = document.getElementById("analysisBadges");
 const analysisIssues = document.getElementById("analysisIssues");
 const analysisReport = document.getElementById("analysisReport");
 const analysisStatus = document.getElementById("analysisStatus");
@@ -400,6 +401,7 @@ function renderArtifacts(artifacts, apiBase) {
 function renderAnalysis(analysis) {
   if (!analysis || typeof analysis !== "object") {
     analysisSummary.textContent = "No analysis available yet.";
+    if (analysisBadges) analysisBadges.innerHTML = "";
     analysisIssues.innerHTML = "";
     analysisReport.textContent = "";
     analysisStatus.textContent = "pending";
@@ -411,6 +413,7 @@ function renderAnalysis(analysis) {
   analysisStatus.textContent = analysis.status || "pending";
   analysisSummary.textContent = analysis.summary || "No analysis available yet.";
 
+  renderSeverityBadges(analysis);
   renderIssueList(analysis);
 
   if (analysis.final_report) {
@@ -426,10 +429,13 @@ function renderAnalysis(analysis) {
 function renderIssueList(analysis) {
   if (!analysisIssues) return;
   const finalIssues = analysis?.final_report?.issues;
+  const topIssues = analysis?.final_report?.top_issues;
   const analyses = Array.isArray(analysis.analyses) ? analysis.analyses : [];
-  const issues = Array.isArray(finalIssues)
-    ? finalIssues
-    : analyses.flatMap((item) => (item.report?.issues || []));
+  const issues = Array.isArray(topIssues)
+    ? topIssues
+    : Array.isArray(finalIssues)
+      ? finalIssues
+      : analyses.flatMap((item) => (item.report?.issues || []));
 
   analysisIssues.innerHTML = "";
 
@@ -455,6 +461,42 @@ function renderIssueList(analysis) {
     `;
     analysisIssues.appendChild(card);
   });
+}
+
+function renderSeverityBadges(analysis) {
+  if (!analysisBadges) return;
+  const breakdown = analysis?.final_report?.severity_breakdown;
+  const analyses = Array.isArray(analysis.analyses) ? analysis.analyses : [];
+  const issues = analyses.flatMap((item) => item.report?.issues || []);
+  const counts = breakdown && typeof breakdown === "object" ? breakdown : countSeverity(issues);
+
+  analysisBadges.innerHTML = "";
+  const entries = [
+    ["high", counts.high || 0],
+    ["medium", counts.medium || 0],
+    ["low", counts.low || 0],
+    ["unknown", counts.unknown || 0]
+  ];
+
+  entries.forEach(([key, value]) => {
+    const badge = document.createElement("span");
+    badge.className = `analysis-badge ${key}`;
+    badge.textContent = `${key}: ${value}`;
+    analysisBadges.appendChild(badge);
+  });
+}
+
+function countSeverity(issues) {
+  const counts = { high: 0, medium: 0, low: 0, unknown: 0 };
+  issues.forEach((issue) => {
+    const severity = String(issue.severity || "unknown").toLowerCase();
+    if (!Object.hasOwn(counts, severity)) {
+      counts.unknown += 1;
+    } else {
+      counts[severity] += 1;
+    }
+  });
+  return counts;
 }
 
 function renderAutonomy(analysis) {
