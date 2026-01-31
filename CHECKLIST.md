@@ -21,7 +21,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Marker input via shortcut + annotation overlay.
 - [x] Persist session list locally and sync to backend. (popup syncs list)
 - [x] Web playback with timeline + logs + annotations + chat UI.
-- [~] AI per chunk with aggregated report. (ADK wired, still basic)
+- [~] AI per chunk with aggregated report. (ADK agents with filtered inputs)
 - [~] Resumable uploads. (GCS resumable supported)
 - [~] Tab switch + idle handling. (auto-pause with auto-resume)
 - [~] GCS storage + signed URLs. (supported via env)
@@ -82,7 +82,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 
 ## 08 — AI Orchestration (`plan/08-ai-orchestration.md`)
 - [x] ADK Python multi-agent pipeline. (ai/adk_orchestrator.py)
-- [~] Per-chunk analysis workflow. (heuristics + ADK)
+- [~] Per-chunk analysis workflow. (log/video/repro agents wired)
 - [~] Video analysis. (ADK multimodal prompt)
 - [~] Repro planner / synthesizer. (ADK agents)
 - [ ] Playwright generator + verifier. (deferred)

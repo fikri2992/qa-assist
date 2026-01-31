@@ -42,8 +42,8 @@ class AdkOrchestrator:
             instruction=(
                 "You analyze console and network events. Return JSON with keys: "
                 "summary (string), issues (array), evidence (array). "
-                "Issues should include title, severity, detail, ts. "
-                "Evidence should include type, message, ts or url/status."
+                "Issues should include title, severity, detail, ts, source. "
+                "Evidence should include type, message or url/status, ts."
             ),
         )
         self.video_agent = LlmAgent(
@@ -52,6 +52,7 @@ class AdkOrchestrator:
             instruction=(
                 "You analyze recorded UI video for visual/UI/UX issues. "
                 "Return JSON with keys: summary (string), issues (array), evidence (array). "
+                "Evidence should include timestamp or range if possible. "
                 "If no issues, return empty arrays."
             ),
         )
@@ -59,8 +60,9 @@ class AdkOrchestrator:
             name="repro_planner",
             model=self.text_model,
             instruction=(
-                "You derive reproduction steps from interaction events. "
-                "Return JSON with keys: summary (string), repro_steps (array of strings)."
+                "You derive reproduction steps from interaction events and notes. "
+                "Return JSON with keys: summary (string), repro_steps (array of strings). "
+                "Include expected vs actual when possible in step text."
             ),
         )
         self.synth_agent = LlmAgent(
@@ -114,9 +116,13 @@ class AdkOrchestrator:
         self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
         payload = self._build_payload(session, chunk, events)
-        log_result = await self._call_agent(self.log_agent, payload, "Analyze console/network logs.")
-        video_result = await self._call_agent(self.video_agent, payload, "Analyze video for UI/UX issues.")
-        repro_result = await self._call_agent(self.repro_agent, payload, "Generate repro steps.")
+        log_payload = self._build_log_payload(payload)
+        repro_payload = self._build_repro_payload(payload)
+        video_payload = self._build_video_payload(payload)
+
+        log_result = await self._call_agent(self.log_agent, log_payload, "Analyze console/network logs.")
+        video_result = await self._call_agent(self.video_agent, video_payload, "Analyze video for UI/UX issues.")
+        repro_result = await self._call_agent(self.repro_agent, repro_payload, "Generate repro steps.")
 
         issues = log_result.issues + video_result.issues
         evidence = log_result.evidence + video_result.evidence
@@ -129,6 +135,7 @@ class AdkOrchestrator:
             "video_summary": video_result.summary,
             "issues": issues,
             "repro_steps": repro_steps,
+            "environment": session.get("metadata", {}),
         }
         synth = await self._call_agent(self.synth_agent, synth_payload, "Summarize findings.")
 
@@ -188,12 +195,12 @@ class AdkOrchestrator:
         model: str
     ) -> Dict[str, Any]:
         prompt = {
-            "instruction": "You are a QA exploratory testing assistant. Respond succinctly.",
+            "instruction": self._mode_instruction(mode),
             "mode": mode,
             "user_message": message,
             "session": session,
             "analysis": analysis,
-            "events": events[-200:],
+            "events": self._trim_events(events),
         }
         agent = LlmAgent(
             name="qa_chat",
@@ -224,14 +231,52 @@ class AdkOrchestrator:
         return {
             "session": session,
             "chunk": chunk,
-            "events": events,
+            "events": self._trim_events(events),
             "video_url": video_url,
+        }
+
+    def _build_log_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "session": payload.get("session"),
+            "chunk": payload.get("chunk"),
+            "events": self._filter_events(payload.get("events", []), {"console", "network"}),
+        }
+
+    def _build_repro_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "session": payload.get("session"),
+            "chunk": payload.get("chunk"),
+            "events": self._filter_events(payload.get("events", []), {"interaction", "marker", "annotation"}),
+        }
+
+    def _build_video_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "session": payload.get("session"),
+            "chunk": payload.get("chunk"),
+            "video_url": payload.get("video_url"),
+            "events": self._filter_events(payload.get("events", []), {"marker", "annotation"}),
         }
 
     def _pick_model(self, model: str) -> str:
         if model and model not in {"default", "auto"}:
             return model
         return self.text_model
+
+    def _trim_events(self, events: List[Dict[str, Any]], limit: int = 300) -> List[Dict[str, Any]]:
+        if not isinstance(events, list):
+            return []
+        return events[-limit:]
+
+    def _filter_events(self, events: List[Dict[str, Any]], allowed: set) -> List[Dict[str, Any]]:
+        filtered = [event for event in events if event.get("type") in allowed]
+        return self._trim_events(filtered, limit=200)
+
+    def _mode_instruction(self, mode: str) -> str:
+        if mode == "summarize":
+            return "Summarize the session and highlight the most important issues."
+        if mode == "triage":
+            return "List top issues with severity and likely impact. Be concise."
+        return "You are a QA exploratory testing assistant. Respond succinctly."
 
     async def _call_agent(self, agent: LlmAgent, payload: Dict[str, Any], task: str) -> AgentOutput:
         prompt = (
