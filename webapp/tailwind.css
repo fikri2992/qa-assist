@@ -92,6 +92,10 @@ main .panel:nth-of-type(8) {
   color: #e9eef7;
 }
 
+.noise-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+}
+
 .brand-pill {
   border-radius: 999px;
   padding: 6px 12px;

@@ -6,9 +6,11 @@ const statusEl = document.getElementById("status");
 const sessionList = document.getElementById("sessionList");
 const openWebBtn = document.getElementById("openWeb");
 
+const defaultWebUrl = chrome.runtime.getURL("webapp/index.html");
+
 chrome.storage.local.get(["qa_api_base", "qa_recording", "qa_status", "qa_web_url"], (state) => {
   apiBaseInput.value = state.qa_api_base || "http://localhost:4000/api";
-  webUrlInput.value = state.qa_web_url || "http://localhost:5173";
+  webUrlInput.value = state.qa_web_url || defaultWebUrl;
   if (state.qa_status) {
     updateStatus(capitalize(state.qa_status));
   } else {
@@ -53,8 +55,8 @@ stopBtn.addEventListener("click", () => {
 });
 
 openWebBtn.addEventListener("click", () => {
-  const url = normalizeUrl(webUrlInput.value.trim());
-  if (!url) return;
+  const raw = webUrlInput.value.trim();
+  const url = raw ? normalizeUrl(raw) : defaultWebUrl;
   chrome.storage.local.set({ qa_web_url: url });
   chrome.tabs.create({ url });
 });

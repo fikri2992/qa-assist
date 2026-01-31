@@ -51,6 +51,7 @@ uvicorn ai.app.main:app --reload --port 8000
 - Enable Developer Mode
 - Load unpacked `extension/`
 - Set API URL in popup and click Start
+- Use the Web app button in the popup to open the packaged UI.
 
 ### 5) Web app
 ```
@@ -58,6 +59,7 @@ cd webapp
 python -m http.server 5173
 ```
 Open `http://localhost:5173` and enter the device id.
+The extension also includes a packaged copy of the webapp at `extension/webapp/index.html`.
 
 ## Submission
 - `docs/submission.md` — demo/video/public link placeholders
