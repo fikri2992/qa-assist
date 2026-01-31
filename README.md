@@ -63,3 +63,4 @@ Open `http://localhost:5173` and enter the device id.
 - `docs/submission.md` — demo/video/public link placeholders
 - `docs/demo-script.md` — demo flow
 - `docs/writeup.md` — hackathon writeup draft
+- `docs/release-checklist.md` — demo/release readiness checklist

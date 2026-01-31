@@ -1,7 +1,7 @@
-# QA Assist — Hackathon Writeup
+# QA Assist - Hackathon Writeup
 
 ## What it is
-QA Assist is an exploratory testing assistant that captures a full testing session — video, console/network logs, and interaction context — then uses AI to summarize issues and suggest repro steps. It is built as a Chrome extension + web playback app with a Phoenix backend and a Python ADK analysis service.
+QA Assist is an exploratory testing assistant that captures a full testing session - video, console/network logs, and interaction context - then uses AI to summarize issues and suggest repro steps. It is built as a Chrome extension + web playback app with a Phoenix backend and a Python ADK analysis service.
 
 ## Why it matters
 Exploratory testing produces rich signals (video + logs + user intent) but they are scattered. QA Assist keeps them aligned in time and turns raw capture into actionable bug reports.
@@ -35,7 +35,7 @@ Exploratory testing produces rich signals (video + logs + user intent) but they 
 - Backend: Elixir Phoenix + Postgres + Redis
 - AI: FastAPI + Google ADK + Gemini models
 
-## What’s next
+## What's next
 - More robust video timestamp alignment
 - Script export (Playwright) from repro steps
 - Polished demo hosting and public link
