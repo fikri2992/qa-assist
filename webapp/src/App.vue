@@ -8,181 +8,222 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen theme-console text-[#e9eef7]">
-    <div class="noise-overlay pointer-events-none fixed inset-0 opacity-10 mix-blend-soft-light"></div>
-
-    <header class="grid gap-6 px-10 pb-5 pt-8 md:grid-cols-[1.2fr_1fr]">
-      <div class="flex items-start gap-4">
-        <div class="brand-pill">QA Assist</div>
-        <div>
-          <h1 class="font-[Fraunces] text-3xl md:text-4xl">Exploratory Session Atlas</h1>
-          <p class="mt-2 max-w-xl text-sm text-[#a3aab7]">
-            Capture. Annotate. Prove. A living record of what broke and why.
-          </p>
+  <div class="app-shell">
+    <!-- Sidebar -->
+    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
+      <div class="sidebar-header">
+        <div class="logo">
+          <span class="logo-icon">◈</span>
+          <span class="logo-text">QA Assist</span>
         </div>
-      </div>
-      <div class="grid gap-3">
-        <label class="text-[11px] uppercase tracking-[0.2em] text-[#a3aab7]">
-          API base
-          <input id="apiBase" type="text" placeholder="http://localhost:4000/api" class="mt-2 w-full rounded-xl border border-white/10 bg-[#121826] px-3 py-2 font-mono text-sm text-[#e9eef7]" />
-        </label>
-        <label class="text-[11px] uppercase tracking-[0.2em] text-[#a3aab7]">
-          Device ID
-          <input id="deviceId" type="text" placeholder="device uuid" class="mt-2 w-full rounded-xl border border-white/10 bg-[#121826] px-3 py-2 font-mono text-sm text-[#e9eef7]" />
-        </label>
-        <button id="loadSessions" class="accent-button">
-          Load sessions
+        <button id="collapseSidebar" class="btn-icon collapse-btn" title="Collapse sidebar">
+          <span class="collapse-icon">‹</span>
         </button>
       </div>
-    </header>
 
-    <main class="grid gap-5 px-10 pb-10 md:grid-cols-[280px_1fr]">
-      <aside class="panel p-4">
-        <div class="flex items-center justify-between">
-          <h2 class="font-[Fraunces] text-lg">Sessions</h2>
-          <span class="accent-chip">device scoped</span>
+      <div class="sidebar-section">
+        <div class="section-label">Connection</div>
+        <input
+          id="apiBase"
+          type="text"
+          placeholder="http://localhost:4000/api"
+          class="input-field"
+        />
+        <input
+          id="deviceId"
+          type="text"
+          placeholder="Device UUID"
+          class="input-field"
+        />
+        <button id="loadSessions" class="btn-primary">
+          <span class="btn-text">Load Sessions</span>
+          <span class="btn-icon-only">↻</span>
+        </button>
+      </div>
+
+      <div class="sidebar-section flex-1">
+        <div class="section-label">Sessions</div>
+        <ul id="sessionList" class="session-list"></ul>
+      </div>
+    </aside>
+
+    <!-- Collapsed Sidebar Rail -->
+    <div id="sidebarRail" class="sidebar-rail">
+      <button id="expandSidebar" class="rail-btn" title="Expand sidebar">
+        <span class="logo-icon">◈</span>
+      </button>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Top Bar -->
+      <header class="top-bar">
+        <div class="session-info">
+          <h1 id="sessionTitle" class="session-title">Select a session</h1>
+          <span id="sessionMeta" class="session-meta"></span>
         </div>
-        <ul id="sessionList" class="mt-4 grid gap-3 text-sm font-mono"></ul>
-      </aside>
+        <div class="session-actions">
+          <span id="sessionStatus" class="status-badge"></span>
+          <button id="toggleTheme" class="btn-icon" title="Toggle theme">
+            <span class="theme-icon">◐</span>
+          </button>
+          <button id="toggleAssistant" class="btn-icon-label" title="AI Assistant">
+            <span>✦</span>
+            Assistant
+          </button>
+        </div>
+      </header>
 
-      <section class="grid gap-4">
-        <div class="panel p-4">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 id="sessionTitle" class="font-[Fraunces] text-lg">Select a session</h2>
-              <div id="sessionMeta" class="text-xs font-mono text-[#a3aab7]"></div>
-            </div>
-            <div id="sessionStatus" class="status-pill"></div>
-          </div>
-
-          <div class="mt-4 panel-surface p-3">
-            <div class="relative">
-              <video id="videoPlayer" controls playsinline class="w-full rounded-xl bg-[#05070c]"></video>
-              <div id="annotationOverlay" class="pointer-events-none absolute inset-0"></div>
-            </div>
-            <div class="relative mt-3 h-12 overflow-hidden rounded-xl border border-white/10 bg-[#0a1018]">
-              <div id="timelineTrack" class="flex h-full"></div>
-              <div id="timelinePins" class="absolute inset-0"></div>
-            </div>
-            <div id="chunkList" class="mt-3 flex flex-wrap gap-2 font-mono text-xs"></div>
-          </div>
+      <!-- Video Section -->
+      <section class="video-section">
+        <div class="video-container">
+          <video id="videoPlayer" controls playsinline class="video-player"></video>
+          <div id="annotationOverlay" class="annotation-overlay"></div>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div class="panel p-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-[Fraunces]">Annotations</h3>
-              <span id="annotationCount" class="accent-chip">0</span>
-            </div>
-            <div id="annotationList" class="mt-3 grid gap-3"></div>
-          </div>
+        <!-- Timeline -->
+        <div class="timeline-container">
+          <div id="timelineTrack" class="timeline-track"></div>
+          <div id="timelinePins" class="timeline-pins"></div>
+        </div>
 
-          <div class="panel p-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-[Fraunces]">Markers</h3>
-              <span id="markerCount" class="accent-chip">0</span>
-            </div>
-            <div id="markerList" class="mt-3 grid gap-3"></div>
-          </div>
+        <!-- Chunk Pills -->
+        <div id="chunkList" class="chunk-list"></div>
+      </section>
 
-          <div class="panel p-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-[Fraunces]">Logs</h3>
-              <span class="accent-chip">console + network</span>
-            </div>
-            <pre id="logPane" class="mt-3 whitespace-pre-wrap text-xs text-[#cbd5f5]"></pre>
-          </div>
+      <!-- Tabbed Content -->
+      <section class="tabs-section">
+        <div class="tabs-nav">
+          <button class="tab-btn active" data-tab="analysis">
+            <span class="tab-icon">📊</span>
+            Analysis
+            <span id="issueCount" class="tab-badge">0</span>
+          </button>
+          <button class="tab-btn" data-tab="events">
+            <span class="tab-icon">👆</span>
+            Interactions
+          </button>
+          <button class="tab-btn" data-tab="logs">
+            <span class="tab-icon">📋</span>
+            Logs
+          </button>
+          <button class="tab-btn" data-tab="annotations">
+            <span class="tab-icon">📌</span>
+            Annotations
+            <span id="annotationCount" class="tab-badge">0</span>
+          </button>
+          <button class="tab-btn" data-tab="markers">
+            <span class="tab-icon">🚩</span>
+            Markers
+            <span id="markerCount" class="tab-badge">0</span>
+          </button>
+          <button class="tab-btn" data-tab="environment">
+            <span class="tab-icon">💻</span>
+            Environment
+          </button>
+          <button class="tab-btn" data-tab="artifacts">
+            <span class="tab-icon">📦</span>
+            Artifacts
+          </button>
+        </div>
 
-          <div class="panel p-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-[Fraunces]">Interactions</h3>
-              <span class="accent-chip">trail</span>
-            </div>
-            <div id="eventPane" class="mt-3 grid gap-2 text-xs font-mono"></div>
-          </div>
-
-          <div class="panel p-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-[Fraunces]">Analysis</h3>
-              <span id="analysisStatus" class="accent-chip">pending</span>
-            </div>
-            <div id="analysisPane" class="mt-3 grid gap-3">
-              <div id="analysisSummary" class="text-sm text-[#e2e8f0]"></div>
-              <div id="analysisBadges" class="analysis-badges"></div>
-              <div id="analysisIssues" class="grid gap-2"></div>
-              <pre id="analysisReport" class="whitespace-pre-wrap text-xs text-[#cbd5f5]"></pre>
-            </div>
-          </div>
-
-          <div class="panel p-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-[Fraunces]">Autonomy Timeline</h3>
-              <span class="accent-chip">agents</span>
-            </div>
-            <div id="autonomyList" class="mt-3 grid gap-2 text-xs"></div>
-          </div>
-
-          <div class="panel p-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-[Fraunces]">Environment</h3>
-              <span class="accent-chip">device</span>
-            </div>
-            <div id="envPane" class="mt-3 grid gap-2 text-xs font-mono"></div>
-          </div>
-
-          <div class="panel p-4">
-            <div class="chat-shell">
-              <div class="chat-header">
-                <div class="chat-app">
-                  <span class="chat-dot"></span>
-                  <div>
-                    <div class="chat-app-title">Tutorial Node.js</div>
-                  </div>
-                </div>
+        <div class="tabs-content">
+          <!-- Analysis Tab -->
+          <div id="tab-analysis" class="tab-panel active">
+            <div class="analysis-header">
+              <div class="analysis-summary">
+                <span id="analysisStatus" class="status-chip">pending</span>
+                <p id="analysisSummary" class="summary-text">No analysis available yet.</p>
               </div>
-
-              <div id="chatList" class="chat-list"></div>
-
-              <div class="chat-input">
-                <input id="chatInput" type="text" placeholder="Do anything with AI..." />
-              </div>
-
-              <div class="chat-footer">
-                <div class="chat-tools">
-                  <button id="chatAdd" class="chat-icon-btn" type="button">+</button>
-                  <button id="chatModeToggle" class="chat-icon-btn" type="button">=</button>
-                </div>
-                <div class="chat-actions">
-                  <span id="chatModelLabel" class="chat-model">Gemini 3</span>
-                  <button id="chatStop" class="chat-stop" type="button">Stop</button>
-                  <button id="chatSend" class="chat-send" type="button">&gt;</button>
-                </div>
-              </div>
-
-              <div class="hidden">
-                <select id="chatMode">
-                  <option value="investigate">Investigate</option>
-                  <option value="summarize">Summarize</option>
-                  <option value="triage">Triage</option>
-                </select>
-                <select id="chatModel">
-                  <option value="default">Auto</option>
-                  <option value="gemini-3-flash">Gemini 3 Flash</option>
-                  <option value="gemini-3-pro-preview">Gemini 3 Pro</option>
-                </select>
-              </div>
+              <div id="analysisBadges" class="severity-badges"></div>
+            </div>
+            <div id="analysisIssues" class="issues-grid"></div>
+            <details class="raw-data">
+              <summary>Raw Report</summary>
+              <pre id="analysisReport" class="code-block"></pre>
+            </details>
+            <div class="autonomy-section">
+              <h3 class="subsection-title">Agent Timeline</h3>
+              <div id="autonomyList" class="autonomy-list"></div>
             </div>
           </div>
 
-          <div class="panel p-4">
-            <div class="flex items-center justify-between">
-              <h3 class="font-[Fraunces]">Artifacts</h3>
-              <span class="accent-chip">export</span>
-            </div>
-            <div id="artifactList" class="mt-3 grid gap-2"></div>
+          <!-- Events Tab -->
+          <div id="tab-events" class="tab-panel">
+            <div id="eventPane" class="events-list"></div>
+          </div>
+
+          <!-- Logs Tab -->
+          <div id="tab-logs" class="tab-panel">
+            <pre id="logPane" class="code-block"></pre>
+          </div>
+
+          <!-- Annotations Tab -->
+          <div id="tab-annotations" class="tab-panel">
+            <div id="annotationList" class="cards-grid"></div>
+          </div>
+
+          <!-- Markers Tab -->
+          <div id="tab-markers" class="tab-panel">
+            <div id="markerList" class="cards-grid"></div>
+          </div>
+
+          <!-- Environment Tab -->
+          <div id="tab-environment" class="tab-panel">
+            <div id="envPane" class="env-grid"></div>
+          </div>
+
+          <!-- Artifacts Tab -->
+          <div id="tab-artifacts" class="tab-panel">
+            <div id="artifactList" class="cards-grid"></div>
           </div>
         </div>
       </section>
     </main>
+
+    <!-- AI Assistant Panel -->
+    <aside id="assistantPanel" class="assistant-panel">
+      <div class="assistant-header">
+        <h2 class="assistant-title">Assistant</h2>
+        <button id="closeAssistant" class="btn-icon">✕</button>
+      </div>
+
+      <div id="chatList" class="chat-messages"></div>
+
+      <div class="chat-controls">
+        <div class="chat-input-wrapper">
+          <input
+            id="chatInput"
+            type="text"
+            placeholder="Ask about this session..."
+            class="chat-input"
+          />
+          <button id="chatSend" class="btn-send">↑</button>
+        </div>
+
+        <div class="chat-options">
+          <div class="chat-mode-pills">
+            <button class="mode-pill active" data-mode="investigate">Investigate</button>
+            <button class="mode-pill" data-mode="summarize">Summarize</button>
+            <button class="mode-pill" data-mode="triage">Triage</button>
+          </div>
+          <div class="chat-model-select">
+            <select id="chatModel" class="model-dropdown">
+              <option value="default">Auto</option>
+              <option value="gemini-3-flash">Flash</option>
+              <option value="gemini-3-pro-preview">Pro</option>
+            </select>
+            <button id="chatStop" class="btn-stop" disabled>Stop</button>
+          </div>
+        </div>
+
+        <!-- Hidden select for JS compatibility -->
+        <select id="chatMode" style="display: none;">
+          <option value="investigate">Investigate</option>
+          <option value="summarize">Summarize</option>
+          <option value="triage">Triage</option>
+        </select>
+      </div>
+    </aside>
   </div>
 </template>
