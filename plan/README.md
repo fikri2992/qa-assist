@@ -14,6 +14,7 @@ This folder captures the hackathon MVP plan as small, focused docs.
 - `plan/09-milestones-and-risks.md` - delivery milestones, risks, and mitigations.
 - `plan/10-hackathon-compliance.md` - Gemini 3 hackathon submission checklist.
 - `plan/11-demo-script.md` - 3-minute demo script (Marathon Agent focus).
+- `plan/12-implementation-plan.md` - post-audit implementation plan with priorities and acceptance criteria.
 
 ## Update policy
 - Keep changes additive and minimal during the hackathon.
