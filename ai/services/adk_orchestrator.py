@@ -11,6 +11,8 @@ from google.adk.agents import LlmAgent
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
+from ai.services.checkpoints import CheckpointStore
+
 try:
     from google.adk.runners import Runner
 except ImportError:  # pragma: no cover - fallback for older module layout
@@ -32,6 +34,7 @@ class AdkOrchestrator:
         self.app_name = "qa-assist-ai"
         self.user_id = "qa-assist"
         self.session_service = InMemorySessionService()
+        self.checkpoints = CheckpointStore.from_env()
 
         self.text_model = os.getenv("ADK_TEXT_MODEL", "gemini-3-flash")
         self.video_model = os.getenv("ADK_VIDEO_MODEL", "gemini-3-pro-preview")
@@ -115,7 +118,9 @@ class AdkOrchestrator:
     async def _analyze_chunk_async(
         self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        payload = self._build_payload(session, chunk, events)
+        session_id = session.get("id") if isinstance(session, dict) else None
+        checkpoint = self.checkpoints.load(session_id) if session_id else {}
+        payload = self._build_payload(session, chunk, events, checkpoint)
         log_payload = self._build_log_payload(payload)
         repro_payload = self._build_repro_payload(payload)
         video_payload = self._build_video_payload(payload)
@@ -139,7 +144,7 @@ class AdkOrchestrator:
         }
         synth = await self._call_agent(self.synth_agent, synth_payload, "Summarize findings.")
 
-        return {
+        report = {
             "summary": synth.summary or "Analysis complete.",
             "suspected_root_cause": synth.root_cause,
             "issues": issues,
@@ -152,12 +157,22 @@ class AdkOrchestrator:
                 self._agent_dict(synth),
             ],
             "chunk_id": chunk.get("id"),
+            "chunk_idx": chunk.get("idx"),
             "session_id": session.get("id"),
         }
+        if session_id:
+            self.checkpoints.append_chunk(session_id, report)
+        return report
 
     async def _aggregate_session_async(
         self, session: Dict[str, Any], chunk_reports: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
+        session_id = session.get("id") if isinstance(session, dict) else None
+        if not chunk_reports and session_id:
+            checkpoint = self.checkpoints.load(session_id)
+            if checkpoint.get("chunk_reports"):
+                chunk_reports = checkpoint["chunk_reports"]
+
         issues = [issue for report in chunk_reports for issue in report.get("issues", [])]
         evidence = [item for report in chunk_reports for item in report.get("evidence", [])]
         steps = [step for report in chunk_reports for step in report.get("repro_steps", [])]
@@ -177,13 +192,25 @@ class AdkOrchestrator:
             else "No chunk analysis available."
         )
 
-        return {
+        report = {
             "summary": summary,
             "issues": issues,
             "evidence": evidence,
             "repro_steps": steps,
             "session_id": session.get("id"),
         }
+        if session_id:
+            checkpoint = self.checkpoints.load(session_id)
+            checkpoint.update(
+                {
+                    "summary": summary,
+                    "issues": issues,
+                    "evidence": evidence,
+                    "repro_steps": steps,
+                }
+            )
+            self.checkpoints.save(session_id, checkpoint)
+        return report
 
     async def _chat_async(
         self,
@@ -194,6 +221,8 @@ class AdkOrchestrator:
         mode: str,
         model: str
     ) -> Dict[str, Any]:
+        session_id = session.get("id") if isinstance(session, dict) else None
+        checkpoint = self.checkpoints.load(session_id) if session_id else {}
         prompt = {
             "instruction": self._mode_instruction(mode),
             "mode": mode,
@@ -201,6 +230,7 @@ class AdkOrchestrator:
             "session": session,
             "analysis": analysis,
             "events": self._trim_events(events),
+            "checkpoint": self._checkpoint_context(checkpoint),
         }
         agent = LlmAgent(
             name="qa_chat",
@@ -221,7 +251,13 @@ class AdkOrchestrator:
             "session_id": session.get("id"),
         }
 
-    def _build_payload(self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _build_payload(
+        self,
+        session: Dict[str, Any],
+        chunk: Dict[str, Any],
+        events: List[Dict[str, Any]],
+        checkpoint: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         video_url = (
             chunk.get("video_url")
             or chunk.get("gcs_url")
@@ -233,6 +269,7 @@ class AdkOrchestrator:
             "chunk": chunk,
             "events": self._trim_events(events),
             "video_url": video_url,
+            "checkpoint": self._checkpoint_context(checkpoint or {}),
         }
 
     def _build_log_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -240,6 +277,7 @@ class AdkOrchestrator:
             "session": payload.get("session"),
             "chunk": payload.get("chunk"),
             "events": self._filter_events(payload.get("events", []), {"console", "network"}),
+            "checkpoint": payload.get("checkpoint", {}),
         }
 
     def _build_repro_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -247,6 +285,7 @@ class AdkOrchestrator:
             "session": payload.get("session"),
             "chunk": payload.get("chunk"),
             "events": self._filter_events(payload.get("events", []), {"interaction", "marker", "annotation"}),
+            "checkpoint": payload.get("checkpoint", {}),
         }
 
     def _build_video_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -255,6 +294,7 @@ class AdkOrchestrator:
             "chunk": payload.get("chunk"),
             "video_url": payload.get("video_url"),
             "events": self._filter_events(payload.get("events", []), {"marker", "annotation"}),
+            "checkpoint": payload.get("checkpoint", {}),
         }
 
     def _pick_model(self, model: str) -> str:
@@ -270,6 +310,22 @@ class AdkOrchestrator:
     def _filter_events(self, events: List[Dict[str, Any]], allowed: set) -> List[Dict[str, Any]]:
         filtered = [event for event in events if event.get("type") in allowed]
         return self._trim_events(filtered, limit=200)
+
+    def _checkpoint_context(self, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
+        if not checkpoint:
+            return {}
+        issues = checkpoint.get("issues", [])
+        steps = checkpoint.get("repro_steps", [])
+        return {
+            "summary": checkpoint.get("summary"),
+            "suspected_root_cause": checkpoint.get("suspected_root_cause"),
+            "issue_count": len(issues),
+            "issues": issues[:20] if isinstance(issues, list) else [],
+            "repro_steps": steps[:20] if isinstance(steps, list) else [],
+            "last_chunk_id": checkpoint.get("last_chunk_id"),
+            "last_chunk_idx": checkpoint.get("last_chunk_idx"),
+            "updated_at": checkpoint.get("updated_at"),
+        }
 
     def _mode_instruction(self, mode: str) -> str:
         if mode == "summarize":

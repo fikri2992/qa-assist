@@ -28,3 +28,6 @@ backend/tmp/
 
 # Local storage artifacts
 backend/priv/static/storage/
+
+# AI checkpoint persistence
+ai/.checkpoints/
