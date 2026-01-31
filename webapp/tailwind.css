@@ -194,7 +194,7 @@ main .panel:nth-of-type(8) {
 #timelineTrack > div {
   border-right: 1px solid rgba(148, 163, 184, 0.15);
   background: linear-gradient(120deg, rgba(249, 115, 22, 0.15), rgba(15, 23, 42, 0.8));
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
 }
 
 #timelineTrack > div.active {
@@ -203,6 +203,7 @@ main .panel:nth-of-type(8) {
 
 #timelineTrack > div:hover {
   transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(255, 122, 26, 0.22);
 }
 
 .timeline-pin {
@@ -214,11 +215,21 @@ main .panel:nth-of-type(8) {
   background: #facc15;
   box-shadow: 0 0 10px rgba(250, 204, 21, 0.6);
   cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .timeline-pin.annotation {
   background: #60a5fa;
   box-shadow: 0 0 10px rgba(96, 165, 250, 0.6);
+}
+
+.timeline-pin:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.8);
+}
+
+.timeline-pin.annotation:hover {
+  box-shadow: 0 0 14px rgba(96, 165, 250, 0.8);
 }
 
 .timeline-pin::after {
