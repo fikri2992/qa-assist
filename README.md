@@ -28,7 +28,7 @@ mix phx.server
 API base URL: `http://localhost:4000/api`
 
 ### Optional: GCS direct uploads
-Set environment variables before starting the backend:
+Set environment variables (recommend putting them in repo root `.env`) before starting the backend:
 
 ```
 STORAGE_BACKEND=gcs
