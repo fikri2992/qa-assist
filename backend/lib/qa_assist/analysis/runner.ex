@@ -100,6 +100,8 @@ defmodule QaAssist.Analysis.Runner do
       end_ts: chunk.end_ts,
       gcs_uri: chunk.gcs_uri,
       video_url: Storage.media_url(chunk.gcs_uri),
+      content_type: chunk.content_type,
+      byte_size: chunk.byte_size,
       status: chunk.status,
       analysis_status: chunk.analysis_status
     }
