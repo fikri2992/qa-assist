@@ -510,7 +510,7 @@ body {
   box-shadow: 0 0 12px rgba(255, 179, 71, 0.6);
 }
 .brand-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
 }
 .brand-subtitle {
@@ -522,7 +522,7 @@ body {
   padding: 4px 10px;
   font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.24em;
   background: rgba(15, 23, 42, 0.7);
   border: 1px solid rgba(148, 163, 184, 0.2);
   color: #cbd5f5;
@@ -537,9 +537,9 @@ body {
   gap: 8px;
 }
 .section-label {
-  font-size: 11px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.22em;
   color: #8b95a5;
 }
 .field-input {
