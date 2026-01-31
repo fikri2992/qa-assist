@@ -35,3 +35,11 @@ Show long-running, multi-agent, multimodal analysis with clear autonomy and evid
 - Use a deterministic bug so the AI report looks credible.
 - Keep on-screen text large and readable.
 - Avoid any mention of private data; use a mock test app.
+
+## Deterministic bug scenario (recommended)
+- Use a simple test page with a "Save" button that:
+  - Triggers a 500 network response (e.g., `/api/save`).
+  - Logs `TypeError: Cannot read properties of undefined` in console.
+  - Leaves a disabled button + spinner stuck (visual regression).
+- Add one marker at the moment the spinner never stops.
+- Add one annotation describing the stuck state and expected behavior.

@@ -100,6 +100,6 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [ ] Marathon agent requirements (autonomy timeline, persistence).
 
 ## 11 — Demo Script (`plan/11-demo-script.md`)
-- [ ] Demo runbook prepared.
-- [ ] Deterministic bug scenario.
-- [ ] Autonomy timeline view.
+- [x] Demo runbook prepared.
+- [x] Deterministic bug scenario.
+- [x] Autonomy timeline view.

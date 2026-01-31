@@ -16,6 +16,7 @@ const analysisPane = document.getElementById("analysisPane");
 const analysisSummary = document.getElementById("analysisSummary");
 const analysisReport = document.getElementById("analysisReport");
 const analysisStatus = document.getElementById("analysisStatus");
+const autonomyList = document.getElementById("autonomyList");
 const annotationList = document.getElementById("annotationList");
 const markerList = document.getElementById("markerList");
 const annotationCount = document.getElementById("annotationCount");
@@ -390,6 +391,7 @@ function renderAnalysis(analysis) {
     analysisSummary.textContent = "No analysis available yet.";
     analysisReport.textContent = "";
     analysisStatus.textContent = "pending";
+    autonomyList.innerHTML = "";
     return;
   }
 
@@ -401,6 +403,43 @@ function renderAnalysis(analysis) {
   } else {
     analysisReport.textContent = "";
   }
+
+  renderAutonomy(analysis);
+}
+
+function renderAutonomy(analysis) {
+  autonomyList.innerHTML = "";
+  const analyses = Array.isArray(analysis.analyses) ? analysis.analyses : [];
+  const entries = [];
+
+  analyses.forEach((item) => {
+    const agents = item.report?.agents;
+    if (!Array.isArray(agents)) return;
+    agents.forEach((agent) => {
+      entries.push({
+        chunkId: item.chunk_id,
+        name: agent.name,
+        summary: agent.summary || "",
+        createdAt: item.created_at
+      });
+    });
+  });
+
+  if (!entries.length) {
+    autonomyList.innerHTML = "<div class=\"autonomy-item\">No agent timeline yet.</div>";
+    return;
+  }
+
+  entries.forEach((entry) => {
+    const row = document.createElement("div");
+    row.className = "autonomy-item";
+    row.innerHTML = `
+      <div class="autonomy-title">${escapeHtml(entry.name || "agent")}</div>
+      <div class="autonomy-meta">${escapeHtml(entry.chunkId || "")}</div>
+      <div class="autonomy-summary">${escapeHtml(entry.summary || "")}</div>
+    `;
+    autonomyList.appendChild(row);
+  });
 }
 
 function renderChatIntro() {
