@@ -30,6 +30,12 @@
       "run_at": "document_idle"
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["webapp/*", "webapp/**/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "commands": {
     "add_marker": {
       "suggested_key": {
