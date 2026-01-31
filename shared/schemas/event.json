@@ -1,0 +1,15 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qa-assist.local/schemas/event.json",
+  "title": "Event",
+  "type": "object",
+  "required": ["session_id", "ts", "type", "payload"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "session_id": {"type": "string", "format": "uuid"},
+    "ts": {"type": "string", "format": "date-time"},
+    "type": {"type": "string"},
+    "payload": {"type": "object"}
+  },
+  "additionalProperties": false
+}

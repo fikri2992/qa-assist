@@ -1,0 +1,16 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qa-assist.local/schemas/analysis.json",
+  "title": "Analysis",
+  "type": "object",
+  "required": ["id", "session_id", "status", "report"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "session_id": {"type": "string", "format": "uuid"},
+    "chunk_id": {"type": ["string", "null"], "format": "uuid"},
+    "status": {"type": "string", "enum": ["pending", "running", "done", "failed"]},
+    "report": {"type": "object"},
+    "created_at": {"type": ["string", "null"], "format": "date-time"}
+  },
+  "additionalProperties": false
+}

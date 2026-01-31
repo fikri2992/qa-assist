@@ -1,0 +1,17 @@
+﻿{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://qa-assist.local/schemas/session.json",
+  "title": "Session",
+  "type": "object",
+  "required": ["id", "device_id", "status"],
+  "properties": {
+    "id": {"type": "string", "format": "uuid"},
+    "device_id": {"type": "string", "format": "uuid"},
+    "status": {"type": "string", "enum": ["recording", "paused", "ended"]},
+    "started_at": {"type": ["string", "null"], "format": "date-time"},
+    "ended_at": {"type": ["string", "null"], "format": "date-time"},
+    "idle_paused_at": {"type": ["string", "null"], "format": "date-time"},
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": false
+}
