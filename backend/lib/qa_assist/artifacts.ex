@@ -31,7 +31,7 @@ defmodule QaAssist.Artifacts do
       session ->
         events =
           from(e in Event,
-            where: e.session_id == ^session_id and e.type == "interaction",
+            where: e.session_id == ^session_id and e.type in ["interaction", "marker", "annotation"],
             order_by: [asc: e.ts]
           )
           |> Repo.all()
@@ -68,7 +68,19 @@ defmodule QaAssist.Artifacts do
     Enum.join(lines, "\n")
   end
 
-  defp event_to_step(event) do
+  defp event_to_step(%Event{type: "marker"} = event) do
+    payload = event.payload || %{}
+    label = payload["label"] || payload[:label] || payload["message"] || payload[:message]
+    if label, do: "  // Marker: #{sanitize_string(label)}", else: nil
+  end
+
+  defp event_to_step(%Event{type: "annotation"} = event) do
+    payload = event.payload || %{}
+    text = payload["text"] || payload[:text]
+    if text, do: "  // Annotation: #{sanitize_string(text)}", else: nil
+  end
+
+  defp event_to_step(%Event{type: "interaction"} = event) do
     payload = event.payload || %{}
     selector = payload["selector"] || payload[:selector]
     action = payload["action"] || payload[:action]
@@ -100,6 +112,8 @@ defmodule QaAssist.Artifacts do
         nil
     end
   end
+
+  defp event_to_step(_), do: nil
 
   defp sanitize_string(nil), do: ""
 

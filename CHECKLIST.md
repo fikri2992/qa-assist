@@ -86,7 +86,7 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] Video analysis. (ADK multimodal prompt)
 - [x] Repro planner / synthesizer. (ADK agents + checkpoint context)
 - [ ] Playwright generator + verifier. (deferred)
-- [~] Script export. (Playwright stub)
+- [x] Script export. (Playwright script export with notes)
 
 ## 09 - Milestones and Risks (`plan/09-milestones-and-risks.md`)
 - [x] Capture MVP. (core capture + ingest works)
@@ -103,5 +103,6 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] Demo runbook prepared.
 - [x] Deterministic bug scenario.
 - [x] Autonomy timeline view.
+
 
 
