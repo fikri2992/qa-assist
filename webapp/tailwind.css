@@ -410,3 +410,21 @@ body {
   border-color: rgba(148, 163, 184, 0.3);
   color: #cbd5f5;
 }
+
+.env-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5f5;
+}
+
+.env-item span:first-child {
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}

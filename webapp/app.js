@@ -19,6 +19,7 @@ const analysisIssues = document.getElementById("analysisIssues");
 const analysisReport = document.getElementById("analysisReport");
 const analysisStatus = document.getElementById("analysisStatus");
 const autonomyList = document.getElementById("autonomyList");
+const envPane = document.getElementById("envPane");
 const annotationList = document.getElementById("annotationList");
 const markerList = document.getElementById("markerList");
 const annotationCount = document.getElementById("annotationCount");
@@ -141,6 +142,7 @@ async function selectSession(sessionId, apiBase, selectedItem) {
     renderMarkers(orderedEvents);
     renderAnnotations(orderedEvents);
     renderAnalysis(analysis);
+    renderEnvironment(session);
     startAnalysisPolling(sessionId, apiBase);
     renderArtifacts(artifacts, apiBase);
     renderChatIntro();
@@ -532,6 +534,37 @@ function renderAutonomy(analysis) {
     `;
     autonomyList.appendChild(row);
   });
+}
+
+function renderEnvironment(session) {
+  if (!envPane) return;
+  const metadata = session?.metadata || {};
+  const viewport = metadata.viewport || {};
+  const screen = metadata.screen || {};
+  const userAgentData = metadata.userAgentData || {};
+  const rows = [
+    ["URL", metadata.url],
+    ["Title", metadata.title],
+    ["Platform", metadata.platform || userAgentData.platform],
+    ["Platform version", userAgentData.platformVersion],
+    ["Browser version", userAgentData.uaFullVersion || metadata.userAgent],
+    ["Viewport", viewport.width && viewport.height ? `${viewport.width}x${viewport.height}` : ""],
+    ["Screen", screen.width && screen.height ? `${screen.width}x${screen.height}` : ""],
+    ["Language", metadata.language]
+  ];
+
+  envPane.innerHTML = "";
+  rows.forEach(([label, value]) => {
+    if (!value) return;
+    const row = document.createElement("div");
+    row.className = "env-item";
+    row.innerHTML = `<span>${escapeHtml(label)}</span><span>${escapeHtml(String(value))}</span>`;
+    envPane.appendChild(row);
+  });
+
+  if (!envPane.children.length) {
+    envPane.innerHTML = "<div class=\"env-item\">No environment metadata.</div>";
+  }
 }
 
 function updateChunkAnalysisBadges(analysis) {
