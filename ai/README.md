@@ -27,5 +27,6 @@ Optional env:
 - GOOGLE_API_KEY (preferred for ADK)
 - ADK_TEXT_MODEL (default: gemini-3-flash)
 - ADK_VIDEO_MODEL (default: gemini-3-pro-preview)
+- LOG_LEVEL (default: INFO)
 - GEMINI_API_KEY (legacy fallback)
 - GEMINI_MODEL (default: gemini-1.5-pro)
