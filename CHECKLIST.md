@@ -97,7 +97,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 ## 10 — Hackathon Compliance (`plan/10-hackathon-compliance.md`)
 - [x] Gemini 3 API usage. (ADK defaults to Gemini 3 models)
 - [ ] Submission artifacts (demo video, public link, writeup).
-- [ ] Marathon agent requirements (autonomy timeline, persistence).
+- [~] Marathon agent requirements (autonomy timeline in UI, persistence pending).
 
 ## 11 — Demo Script (`plan/11-demo-script.md`)
 - [x] Demo runbook prepared.
