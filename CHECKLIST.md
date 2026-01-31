@@ -20,7 +20,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [x] Interaction capture with DOM context. (extension/content.js)
 - [x] Marker input via shortcut + annotation overlay.
 - [~] Persist session list locally and sync to backend. (stored locally + shown in popup)
-- [~] Web playback with timeline + logs + annotations + chat UI. (chat + overlays added)
+- [x] Web playback with timeline + logs + annotations + chat UI.
 - [~] AI per chunk with aggregated report. (ADK wired, still basic)
 - [~] Resumable uploads. (GCS resumable supported)
 - [~] Tab switch + idle handling. (auto-pause with auto-resume)
@@ -95,7 +95,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [ ] Polish (idle resume, annotations, chat, badges).
 
 ## 10 — Hackathon Compliance (`plan/10-hackathon-compliance.md`)
-- [ ] Gemini 3 API usage.
+- [x] Gemini 3 API usage. (ADK defaults to Gemini 3 models)
 - [ ] Submission artifacts (demo video, public link, writeup).
 - [ ] Marathon agent requirements (autonomy timeline, persistence).
 
