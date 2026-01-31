@@ -1,11 +1,14 @@
 const apiBaseInput = document.getElementById("apiBase");
+const webUrlInput = document.getElementById("webUrl");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const statusEl = document.getElementById("status");
 const sessionList = document.getElementById("sessionList");
+const openWebBtn = document.getElementById("openWeb");
 
-chrome.storage.local.get(["qa_api_base", "qa_recording", "qa_status"], (state) => {
+chrome.storage.local.get(["qa_api_base", "qa_recording", "qa_status", "qa_web_url"], (state) => {
   apiBaseInput.value = state.qa_api_base || "http://localhost:4000/api";
+  webUrlInput.value = state.qa_web_url || "http://localhost:5173";
   if (state.qa_status) {
     updateStatus(capitalize(state.qa_status));
   } else {
@@ -25,6 +28,14 @@ function capitalize(value) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function normalizeUrl(value) {
+  if (!value) return "";
+  if (!/^[a-z]+:\/\//i.test(value)) {
+    return `http://${value}`;
+  }
+  return value;
+}
+
 startBtn.addEventListener("click", () => {
   const apiBase = apiBaseInput.value.trim();
   chrome.storage.local.set({ qa_api_base: apiBase });
@@ -39,6 +50,13 @@ stopBtn.addEventListener("click", () => {
     updateStatus("Stopped");
     syncSessions().finally(loadRecentSessions);
   });
+});
+
+openWebBtn.addEventListener("click", () => {
+  const url = normalizeUrl(webUrlInput.value.trim());
+  if (!url) return;
+  chrome.storage.local.set({ qa_web_url: url });
+  chrome.tabs.create({ url });
 });
 
 chrome.runtime.onMessage.addListener((message) => {

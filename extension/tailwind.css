@@ -150,6 +150,16 @@ body {
   gap: 8px;
 }
 
+.field-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.field-row .field-input {
+  flex: 1;
+}
+
 .section-label {
   font-size: 10px;
   text-transform: uppercase;
