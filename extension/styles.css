@@ -1,15 +1,20 @@
-﻿@import url("https://fonts.googleapis.com/css2?family=Syne:wght@500;700&family=JetBrains+Mono:wght@400;600&family=Mulish:wght@400;600&display=swap");
+﻿@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
 
 :root {
   color-scheme: dark;
-  --bg: #07080b;
-  --panel: #0f131a;
-  --panel-strong: #131a24;
-  --ink: #f8fafc;
-  --muted: #9aa3b2;
-  --accent: #facc15;
-  --accent-dark: #a16207;
-  --line: rgba(148, 163, 184, 0.2);
+  --bg: #1a1d23;
+  --surface: #22262e;
+  --surface-hover: #2a2f38;
+  --ink: #e8eaed;
+  --ink-soft: #b4b9c1;
+  --muted: #7d8590;
+  --accent: #6b9fff;
+  --accent-soft: rgba(107, 159, 255, 0.15);
+  --accent-glow: rgba(107, 159, 255, 0.25);
+  --success: #7dd3a8;
+  --success-soft: rgba(125, 211, 168, 0.15);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.05);
 }
 
 * {
@@ -18,123 +23,122 @@
 
 body {
   margin: 0;
-  background: radial-gradient(circle at top, #1b2331 0%, #0a0c11 55%, #050607 100%);
+  background: var(--bg);
   color: var(--ink);
-  font-family: "Mulish", sans-serif;
-  min-width: 300px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  min-width: 320px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .popup {
-  padding: 16px;
-  display: grid;
-  gap: 12px;
-  position: relative;
-}
-
-.popup::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(120deg, rgba(250, 204, 21, 0.08), transparent 55%);
-  pointer-events: none;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  position: relative;
-  z-index: 1;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .logo-block {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 
 .logo-ring {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 1px solid var(--accent);
-  box-shadow: 0 0 18px rgba(250, 204, 21, 0.45);
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--accent-glow));
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: relative;
 }
 
 .logo-ring::after {
   content: "";
-  position: absolute;
-  inset: 6px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
-  border: 1px dashed rgba(250, 204, 21, 0.6);
+  background: var(--accent);
+  opacity: 0.8;
 }
 
 .logo {
-  font-family: "Syne", sans-serif;
-  font-size: 18px;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
 }
 
 .tagline {
   font-size: 11px;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
+  margin-top: 1px;
 }
 
 .status {
   font-family: "JetBrains Mono", monospace;
   font-size: 10px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 6px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  background: rgba(8, 10, 14, 0.6);
+  letter-spacing: 0.04em;
+  background: var(--surface);
+  color: var(--muted);
 }
 
 .status[data-status="recording"] {
-  border-color: rgba(250, 204, 21, 0.6);
-  box-shadow: 0 0 16px rgba(250, 204, 21, 0.35);
+  background: var(--success-soft);
+  color: var(--success);
 }
 
-.panel {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px;
-  position: relative;
-  z-index: 1;
-}
-
-.panel-title {
-  font-family: "Syne", sans-serif;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  color: var(--muted);
-  margin-bottom: 8px;
-}
-
-.field {
+.section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 10px;
+}
+
+.section-title {
   font-size: 11px;
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
   color: var(--muted);
 }
 
 .field input {
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid var(--line);
-  background: var(--panel-strong);
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
   color: var(--ink);
   font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.field input:hover {
+  background: var(--surface-hover);
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+
+.field input::placeholder {
+  color: var(--muted);
 }
 
 .actions {
@@ -145,43 +149,59 @@ body {
 
 button {
   border: none;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-weight: 700;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-weight: 500;
+  font-size: 13px;
   cursor: pointer;
-  font-family: "Syne", sans-serif;
+  font-family: "Inter", sans-serif;
+  transition: all 0.15s ease;
 }
 
 button.primary {
   background: var(--accent);
-  color: #1b1202;
-  box-shadow: 0 10px 20px rgba(250, 204, 21, 0.3);
+  color: #fff;
+}
+
+button.primary:hover {
+  background: #5a8de8;
+  transform: translateY(-1px);
+}
+
+button.primary:active {
+  transform: translateY(0);
 }
 
 button.ghost {
-  background: transparent;
+  background: var(--surface);
+  color: var(--ink-soft);
+  border: 1px solid var(--border);
+}
+
+button.ghost:hover {
+  background: var(--surface-hover);
   color: var(--ink);
-  border: 1px solid var(--line);
 }
 
 .shortcuts {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .shortcut-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
-  color: var(--muted);
+  padding: 6px 0;
+  color: var(--ink-soft);
 }
 
 .shortcut-row code {
   font-family: "JetBrains Mono", monospace;
-  background: rgba(250, 204, 21, 0.15);
-  border: 1px solid rgba(250, 204, 21, 0.4);
-  color: var(--ink);
-  padding: 2px 6px;
-  border-radius: 999px;
+  font-size: 11px;
+  background: var(--surface);
+  color: var(--muted);
+  padding: 4px 8px;
+  border-radius: 5px;
 }
