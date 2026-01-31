@@ -1,0 +1,30 @@
+.DS_Store
+Thumbs.db
+
+.env
+.env.*
+!.env.example
+
+node_modules/
+dist/
+build/
+.cache/
+
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+*.log
+
+# Phoenix / Elixir
+backend/_build/
+backend/deps/
+backend/.elixir_ls/
+backend/cover/
+backend/doc/
+backend/tmp/
+
+# Local storage artifacts
+backend/priv/static/storage/

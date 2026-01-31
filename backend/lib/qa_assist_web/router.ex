@@ -5,6 +5,12 @@ defmodule QaAssistWeb.Router do
     plug :accepts, ["json"]
   end
 
+  scope "/", QaAssistWeb do
+    pipe_through :api
+
+    get "/", RootController, :index
+  end
+
   scope "/api", QaAssistWeb do
     pipe_through :api
 
