@@ -16,6 +16,25 @@ Endpoints:
 - POST /aggregate
 - POST /chat
 
+## Response schema (AI)
+Common fields returned by `/analyze` and `/aggregate`:
+- `summary` (string)
+- `suspected_root_cause` (string | null)
+- `issues` (array of objects)
+  - `title` (string)
+  - `severity` (low|medium|high|unknown)
+  - `detail` (string)
+  - `ts` or `timestamp_start`/`timestamp_end` (ISO string)
+  - `source` / `category` (string)
+- `evidence` (array of objects)
+  - `type` (console|network|video|annotation|marker)
+  - `message` / `url` / `status` / `timestamp` (string/number)
+- `repro_steps` (array of strings)
+- `severity_breakdown` (object; counts per severity)
+- `top_issues` (array; subset of issues)
+- `chunk_id`, `chunk_idx`, `session_id` (chunk-level only)
+- `agents` (array; chunk-level only)
+
 Structure:
 - `ai/app/` FastAPI app + routes
 - `ai/services/` orchestrators + integrations

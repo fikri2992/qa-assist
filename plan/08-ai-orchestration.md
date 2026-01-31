@@ -31,8 +31,20 @@
 - Environment metadata.
 
 ## Outputs
-- Structured report JSON:
-  - Summary
-  - Suspected root cause
-  - Repro steps
-  - Evidence (timestamps, logs, screenshots if available)
+- Structured report JSON (per chunk + session aggregate):
+  - `summary` (string)
+  - `suspected_root_cause` (string | null)
+  - `issues` (array)
+    - `title` (string)
+    - `severity` (low|medium|high|unknown)
+    - `detail` (string)
+    - `ts` or `timestamp_start`/`timestamp_end` (string, ISO)
+    - `source` or `category` (string)
+  - `evidence` (array)
+    - `type` (console|network|video|annotation|marker)
+    - `message`/`url`/`status`/`timestamp` (string/number)
+  - `repro_steps` (array of strings)
+  - `severity_breakdown` (object: counts per severity)
+  - `top_issues` (array of issues)
+  - `agents` (array of per-agent summaries; chunk-level only)
+  - `chunk_id`, `chunk_idx`, `session_id`
