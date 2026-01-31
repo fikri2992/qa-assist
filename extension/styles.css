@@ -552,6 +552,11 @@ body {
   font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
 }
+.field-input:focus {
+  outline: none;
+  border-color: rgba(255, 179, 71, 0.45);
+  box-shadow: 0 0 0 1px rgba(255, 179, 71, 0.25);
+}
 .primary-btn {
   border-radius: 12px;
   background: linear-gradient(120deg, #ff7a1a, #ffb347);
@@ -561,6 +566,10 @@ body {
   padding: 8px 12px;
   border: none;
   cursor: pointer;
+}
+.primary-btn:focus-visible, .ghost-btn:focus-visible {
+  outline: 2px solid rgba(255, 179, 71, 0.5);
+  outline-offset: 2px;
 }
 .ghost-btn {
   border-radius: 12px;
