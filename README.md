@@ -58,3 +58,8 @@ cd webapp
 python -m http.server 5173
 ```
 Open `http://localhost:5173` and enter the device id.
+
+## Submission
+- `docs/submission.md` — demo/video/public link placeholders
+- `docs/demo-script.md` — demo flow
+- `docs/writeup.md` — hackathon writeup draft
