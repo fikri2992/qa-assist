@@ -12,6 +12,7 @@ const state = {
   currentTabId: null,
   lastActivity: Date.now(),
   lastUrl: null,
+  autoPaused: false,
   flushTimer: null,
   idleTimer: null,
   eventQueue: []
@@ -24,7 +25,8 @@ async function loadState() {
     "qa_recording",
     "qa_status",
     "qa_chunk_index",
-    "qa_api_base"
+    "qa_api_base",
+    "qa_auto_paused"
   ]);
   state.deviceId = stored.qa_device_id || null;
   state.sessionId = stored.qa_session_id || null;
@@ -32,6 +34,7 @@ async function loadState() {
   state.status = stored.qa_status || (state.recording ? "recording" : "idle");
   state.chunkIndex = stored.qa_chunk_index || 0;
   state.apiBase = stored.qa_api_base || DEFAULT_API_BASE;
+  state.autoPaused = stored.qa_auto_paused || false;
 }
 
 async function persistState() {
@@ -41,7 +44,8 @@ async function persistState() {
     qa_recording: state.recording,
     qa_status: state.status,
     qa_chunk_index: state.chunkIndex,
-    qa_api_base: state.apiBase
+    qa_api_base: state.apiBase,
+    qa_auto_paused: state.autoPaused
   });
 }
 
@@ -237,6 +241,7 @@ async function startRecording(apiBaseOverride) {
 
   state.recording = true;
   state.status = "recording";
+  state.autoPaused = false;
   state.currentTabId = tab.id;
   state.lastUrl = tab.url || null;
   state.lastActivity = Date.now();
@@ -273,6 +278,7 @@ async function stopRecording() {
   const wasRecording = state.recording;
   state.recording = false;
   state.status = "ended";
+  state.autoPaused = false;
   state.sessionId = null;
   await persistState();
 
@@ -290,12 +296,13 @@ async function stopRecording() {
   notifyStatus("Stopped");
 }
 
-async function pauseRecording() {
+async function pauseRecording(autoPaused = false) {
   await loadState();
   if (!state.recording) return;
 
   state.recording = false;
   state.status = "paused";
+  state.autoPaused = autoPaused;
   await persistState();
 
   if (state.currentTabId) {
@@ -316,7 +323,7 @@ async function handleAutoPause(reason) {
     type: "marker",
     payload: { message: `Auto-paused: ${reason}` }
   });
-  await pauseRecording();
+  await pauseRecording(true);
 }
 
 function notifyStatus(value) {
@@ -338,6 +345,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message.type === "ACTIVITY") {
     state.lastActivity = Date.now();
+    if (state.autoPaused) {
+      maybeAutoResume();
+    }
   }
   if (message.type === "CHUNK_DATA") {
     handleChunkData(message).then(() => sendResponse({ ok: true }));
@@ -498,6 +508,12 @@ async function getActiveTab() {
   }
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab;
+}
+
+async function maybeAutoResume() {
+  await loadState();
+  if (!state.autoPaused || state.recording || !state.sessionId) return;
+  await startRecording(state.apiBase);
 }
 
 async function getTabEnvironment(tabId) {
