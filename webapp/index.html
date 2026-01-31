@@ -1,0 +1,65 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QA Assist</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="dot"></span>
+        <div>
+          <div class="title">QA Assist</div>
+          <div class="subtitle">Exploratory session playback</div>
+        </div>
+      </div>
+      <div class="controls">
+        <label>
+          API URL
+          <input id="apiBase" type="text" placeholder="http://localhost:4000/api" />
+        </label>
+        <label>
+          Device ID
+          <input id="deviceId" type="text" placeholder="device uuid" />
+        </label>
+        <button id="loadSessions">Load Sessions</button>
+      </div>
+    </header>
+    <main class="layout">
+      <aside class="panel sessions">
+        <h2>Sessions</h2>
+        <ul id="sessionList"></ul>
+      </aside>
+      <section class="panel detail">
+        <div class="detail-header">
+          <div>
+            <h2 id="sessionTitle">Select a session</h2>
+            <div id="sessionMeta" class="meta"></div>
+          </div>
+          <div class="badge" id="sessionStatus"></div>
+        </div>
+        <div class="video-block">
+          <video id="videoPlayer" controls playsinline></video>
+          <div id="chunkList" class="chunk-list"></div>
+        </div>
+        <div class="grid">
+          <div class="panel-inner">
+            <h3>Logs</h3>
+            <pre id="logPane"></pre>
+          </div>
+          <div class="panel-inner">
+            <h3>Events</h3>
+            <pre id="eventPane"></pre>
+          </div>
+          <div class="panel-inner">
+            <h3>Analysis</h3>
+            <pre id="analysisPane"></pre>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
