@@ -3,8 +3,11 @@
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 from typing import Any, Dict, List
+from dotenv import load_dotenv
 
 from orchestrator import Orchestrator
+
+load_dotenv()
 
 app = FastAPI(title="QA Assist AI")
 

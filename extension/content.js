@@ -110,7 +110,10 @@
       selector: cssPath(target),
       text: target.innerText?.slice(0, 120) || "",
       bbox: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
-      url: window.location.href
+      url: window.location.href,
+      key: type === "keydown" ? event.key : undefined,
+      scrollX: type === "scroll" ? window.scrollX : undefined,
+      scrollY: type === "scroll" ? window.scrollY : undefined
     };
 
     chrome.runtime.sendMessage({

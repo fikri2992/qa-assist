@@ -249,7 +249,7 @@ body {
 .timeline-pins {
   position: absolute;
   inset: 0;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .timeline-pin {
@@ -260,11 +260,34 @@ body {
   border-radius: 50%;
   background: #facc15;
   box-shadow: 0 0 10px rgba(250, 204, 21, 0.6);
+  cursor: pointer;
 }
 
 .timeline-pin.annotation {
   background: #60a5fa;
   box-shadow: 0 0 10px rgba(96, 165, 250, 0.6);
+}
+
+.timeline-pin::after {
+  content: attr(data-label);
+  position: absolute;
+  top: -34px;
+  left: 50%;
+  transform: translateX(-50%) translateY(6px);
+  background: rgba(15, 23, 42, 0.95);
+  color: #f8fafc;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 10px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.timeline-pin:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 video {
@@ -287,6 +310,11 @@ video {
   background: rgba(148, 163, 184, 0.12);
   font-size: 11px;
   font-family: "IBM Plex Mono", monospace;
+}
+
+.chunk-pill.active {
+  background: rgba(249, 115, 22, 0.4);
+  border: 1px solid rgba(249, 115, 22, 0.6);
 }
 
 .grid {
@@ -330,6 +358,33 @@ video {
   font-family: "IBM Plex Mono", monospace;
   margin: 0;
   color: #cbd5f5;
+}
+
+.artifact-list {
+  display: grid;
+  gap: 10px;
+}
+
+.artifact-card {
+  padding: 12px;
+  border-radius: 12px;
+  background: #0b1322;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+}
+
+.artifact-card a {
+  color: #facc15;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.artifact-card a:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 1024px) {

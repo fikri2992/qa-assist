@@ -16,6 +16,7 @@ const annotationList = document.getElementById("annotationList");
 const markerList = document.getElementById("markerList");
 const annotationCount = document.getElementById("annotationCount");
 const markerCount = document.getElementById("markerCount");
+const artifactList = document.getElementById("artifactList");
 
 const storedApiBase = localStorage.getItem("qa_api_base") || "http://localhost:4000/api";
 const storedDeviceId = localStorage.getItem("qa_device_id") || "";
@@ -93,6 +94,7 @@ async function selectSession(sessionId, apiBase, selectedItem) {
     const session = await fetchJson(`${apiBase}/sessions/${sessionId}`);
     const analysis = await fetchJson(`${apiBase}/sessions/${sessionId}/analysis`);
     const events = await fetchJson(`${apiBase}/sessions/${sessionId}/events?limit=1000`);
+    const artifacts = await fetchJson(`${apiBase}/sessions/${sessionId}/artifacts`);
 
     sessionMeta.textContent = `Started ${formatDate(session.started_at)} · ${session.chunks.length} chunks`;
     setStatus(session.status);
@@ -110,6 +112,7 @@ async function selectSession(sessionId, apiBase, selectedItem) {
     renderMarkers(orderedEvents);
     renderAnnotations(orderedEvents);
     renderAnalysis(analysis);
+    renderArtifacts(artifacts, apiBase);
   } catch (err) {
     sessionMeta.textContent = err.message;
     setStatus("error");
@@ -139,12 +142,20 @@ function setCurrentChunk(index) {
   }
 
   highlightTimeline();
+  highlightChunks();
 }
 
 function highlightTimeline() {
   const segments = timelineTrack.querySelectorAll(".timeline-segment");
   segments.forEach((segment, index) => {
     segment.classList.toggle("active", index === currentChunkIndex);
+  });
+}
+
+function highlightChunks() {
+  const pills = chunkList.querySelectorAll(".chunk-pill");
+  pills.forEach((pill, index) => {
+    pill.classList.toggle("active", index === currentChunkIndex);
   });
 }
 
@@ -181,6 +192,7 @@ function renderTimeline(session, chunks, events) {
       pin.className = `timeline-pin ${event.type === "annotation" ? "annotation" : ""}`;
       pin.style.left = `calc(${left}% - 5px)`;
       pin.title = event.type === "annotation" ? event.payload?.text || "Annotation" : "Marker";
+      pin.dataset.label = pin.title;
       timelinePins.appendChild(pin);
     }
   });
@@ -266,6 +278,27 @@ function renderAnnotations(events) {
       <p>${escapeHtml(text)}</p>
     `;
     annotationList.appendChild(card);
+  });
+}
+
+function renderArtifacts(artifacts, apiBase) {
+  artifactList.innerHTML = "";
+  if (!artifacts.length) {
+    artifactList.innerHTML = "<div class=\"artifact-card\">No artifacts yet.</div>";
+    return;
+  }
+
+  artifacts.forEach((artifact) => {
+    const card = document.createElement("div");
+    card.className = "artifact-card";
+    card.innerHTML = `
+      <div>
+        <strong>${escapeHtml(artifact.name)}</strong>
+        <div>${escapeHtml(artifact.description || "")}</div>
+      </div>
+      <a href="${apiBase}/artifacts/${artifact.id}" target="_blank" rel="noreferrer">Download</a>
+    `;
+    artifactList.appendChild(card);
   });
 }
 
