@@ -63,6 +63,12 @@ defmodule QaAssist.Recording do
     Repo.get(Session, id)
   end
 
+  def get_session_with_device(id) do
+    Session
+    |> Repo.get(id)
+    |> Repo.preload([:device])
+  end
+
   def get_session_with_children(id) do
     Session
     |> Repo.get(id)
@@ -72,6 +78,15 @@ defmodule QaAssist.Recording do
   def list_sessions(device_id) do
     from(s in Session,
       where: s.device_id == ^device_id,
+      order_by: [desc: s.inserted_at]
+    )
+    |> Repo.all()
+  end
+
+  def list_sessions_by_user(user_id) do
+    from(s in Session,
+      join: d in assoc(s, :device),
+      where: d.user_id == ^user_id,
       order_by: [desc: s.inserted_at]
     )
     |> Repo.all()
@@ -197,17 +212,25 @@ defmodule QaAssist.Recording do
 
   defp parse_ts(nil), do: nil
 
-  defp parse_ts(%DateTime{} = dt), do: dt
+  defp parse_ts(%DateTime{} = dt), do: normalize_dt(dt)
 
   defp parse_ts(ts) when is_integer(ts) do
-    DateTime.from_unix!(ts, :millisecond)
+    ts
+    |> DateTime.from_unix!(:millisecond)
+    |> normalize_dt()
   end
 
   defp parse_ts(ts) when is_binary(ts) do
     case DateTime.from_iso8601(ts) do
-      {:ok, dt, _offset} -> dt
+      {:ok, dt, _offset} -> normalize_dt(dt)
       _ -> nil
     end
+  end
+
+  defp normalize_dt(%DateTime{} = dt) do
+    dt
+    |> DateTime.to_unix(:microsecond)
+    |> DateTime.from_unix!(:microsecond)
   end
 
   defp should_enqueue_analysis?(%Chunk{} = before, %Chunk{} = updated) do

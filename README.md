@@ -50,7 +50,8 @@ uvicorn ai.app.main:app --reload --port 8000
 - Open `chrome://extensions`
 - Enable Developer Mode
 - Load unpacked `extension/`
-- Set API URL in popup and click Start
+- Login in the popup (seeded user: `demo@qaassist.local` / `demo123`)
+- Click Start to record
 - Use the Web app button in the popup to open the Vite UI.
 
 ### 5) Web app
@@ -59,7 +60,7 @@ cd webapp
 npm install
 npm run dev
 ```
-Open `http://localhost:5173` and enter the device id.
+Open `http://localhost:5173` and login with the seeded user.
 
 ## Submission
 - `docs/submission.md` — demo/video/public link placeholders

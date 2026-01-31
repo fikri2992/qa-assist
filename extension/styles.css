@@ -89,6 +89,57 @@ body {
   display: block;
 }
 
+/* Login */
+.hidden {
+  display: none;
+}
+
+.login-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #21262d;
+  border-radius: 8px;
+  background: #0f141b;
+}
+
+.login-panel h3 {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e6edf3;
+}
+
+.login-panel input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+  background: #0d1117;
+  color: #e6edf3;
+  font-size: 12px;
+}
+
+.login-btn {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: none;
+  background: #f97316;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.login-btn:hover {
+  background: #ea580c;
+}
+
+.login-status {
+  font-size: 11px;
+  color: #7d8590;
+}
+
 /* Record Tab */
 .recording-control {
   padding: 16px 0;

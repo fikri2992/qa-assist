@@ -41,8 +41,7 @@ export const useChatStore = defineStore("chat", () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-device-id": sessionsStore.deviceId,
-            "x-device-secret": sessionsStore.deviceSecret,
+            ...(sessionsStore.authToken ? { Authorization: `Bearer ${sessionsStore.authToken}` } : {}),
           },
           body: JSON.stringify({ message: text, mode: mode.value, model: model.value }),
           signal: abortController.signal,

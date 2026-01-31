@@ -10,7 +10,7 @@ const sessionsStore = useSessionsStore();
 const router = useRouter();
 
 const { sidebarCollapsed } = storeToRefs(appStore);
-const { sessions, loading, currentSession } = storeToRefs(sessionsStore);
+const { sessions, loading, currentSession, isAuthenticated } = storeToRefs(sessionsStore);
 
 async function handleSelectSession(session) {
   await sessionsStore.selectSession(session.id);
@@ -23,7 +23,9 @@ function formatSessionId(id) {
 
 // Auto-load sessions on mount
 onMounted(() => {
-  sessionsStore.loadSessions();
+  if (isAuthenticated.value) {
+    sessionsStore.loadSessions();
+  }
 });
 </script>
 

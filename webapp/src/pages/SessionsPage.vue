@@ -1,46 +1,86 @@
 <script setup>
+import { ref } from "vue";
 import { useSessionsStore } from "../stores/sessions";
 import { storeToRefs } from "pinia";
 
 const sessionsStore = useSessionsStore();
-const { sessions, loading } = storeToRefs(sessionsStore);
+const { sessions, loading, error, authEmail, isAuthenticated } = storeToRefs(sessionsStore);
+
+const email = ref(authEmail.value || "");
+const password = ref("");
+
+function handleLogin() {
+  sessionsStore.login(email.value, password.value);
+}
+
+function handleLogout() {
+  sessionsStore.logout();
+}
 </script>
 
 <template>
   <div class="welcome-page">
     <div class="welcome-content">
-      <div v-if="loading" class="loading-state">
-        <i class="pi pi-spin pi-spinner"></i>
-        <span>Loading sessions...</span>
-      </div>
-      <template v-else>
+      <div v-if="!isAuthenticated" class="login-panel">
         <div class="welcome-icon">
-          <i class="pi pi-box"></i>
+          <i class="pi pi-lock"></i>
         </div>
-        <h1>Welcome to QA Assist</h1>
+        <h1>Sign in</h1>
         <p class="welcome-desc">
-          Capture, annotate, and analyze your QA sessions with AI-powered insights.
+          Use your QA Assist account to load recorded sessions.
         </p>
-        
-        <div class="features">
-          <div class="feature">
-            <i class="pi pi-video"></i>
-            <span>Session Recording</span>
-          </div>
-          <div class="feature">
-            <i class="pi pi-chart-bar"></i>
-            <span>AI Analysis</span>
-          </div>
-          <div class="feature">
-            <i class="pi pi-comments"></i>
-            <span>Smart Assistant</span>
-          </div>
+
+        <div class="login-form">
+          <label>
+            Email
+            <input v-model="email" type="email" placeholder="demo@qaassist.local" />
+          </label>
+          <label>
+            Password
+            <input v-model="password" type="password" placeholder="••••••••" />
+          </label>
+          <button class="login-btn" @click="handleLogin">Login</button>
         </div>
 
-        <p v-if="sessions.length" class="session-hint">
-          <i class="pi pi-check-circle"></i>
-          {{ sessions.length }} session(s) available. Select one from the sidebar.
-        </p>
+        <p v-if="error" class="error-text">{{ error }}</p>
+      </div>
+
+      <template v-else>
+        <div v-if="loading" class="loading-state">
+          <i class="pi pi-spin pi-spinner"></i>
+          <span>Loading sessions...</span>
+        </div>
+        <template v-else>
+          <div class="welcome-icon">
+            <i class="pi pi-box"></i>
+          </div>
+          <h1>Welcome to QA Assist</h1>
+          <p class="welcome-desc">
+            Capture, annotate, and analyze your QA sessions with AI-powered insights.
+          </p>
+          
+          <div class="features">
+            <div class="feature">
+              <i class="pi pi-video"></i>
+              <span>Session Recording</span>
+            </div>
+            <div class="feature">
+              <i class="pi pi-chart-bar"></i>
+              <span>AI Analysis</span>
+            </div>
+            <div class="feature">
+              <i class="pi pi-comments"></i>
+              <span>Smart Assistant</span>
+            </div>
+          </div>
+
+          <p v-if="sessions.length" class="session-hint">
+            <i class="pi pi-check-circle"></i>
+            {{ sessions.length }} session(s) available. Select one from the sidebar.
+          </p>
+
+          <button class="logout-btn" @click="handleLogout">Logout</button>
+        </template>
       </template>
     </div>
   </div>
@@ -59,6 +99,59 @@ const { sessions, loading } = storeToRefs(sessionsStore);
 .welcome-content {
   text-align: center;
   max-width: 480px;
+}
+
+.login-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.login-form {
+  width: 100%;
+  display: grid;
+  gap: var(--space-3);
+  text-align: left;
+}
+
+.login-form label {
+  display: grid;
+  gap: var(--space-2);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.login-form input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.login-btn,
+.logout-btn {
+  margin-top: var(--space-2);
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.logout-btn {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-default);
+}
+
+.error-text {
+  color: #ef4444;
+  font-size: 12px;
 }
 
 .loading-state {

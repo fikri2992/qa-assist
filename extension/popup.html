@@ -22,6 +22,14 @@
 
       <!-- Record Tab -->
       <div id="recordTab" class="tab-content active">
+        <div id="loginPanel" class="login-panel hidden">
+          <h3>Sign in</h3>
+          <input id="loginEmail" type="email" placeholder="Email" />
+          <input id="loginPassword" type="password" placeholder="Password" />
+          <button id="loginBtn" class="login-btn">Login</button>
+          <p id="loginStatus" class="login-status"></p>
+        </div>
+
         <div id="recordingControl" class="recording-control" data-state="idle">
           <button id="mainBtn" class="main-btn">
             <span class="btn-icon"></span>

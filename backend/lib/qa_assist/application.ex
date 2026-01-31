@@ -9,15 +9,15 @@ defmodule QaAssist.Application do
   def start(_type, _args) do
     children =
       [
-      QaAssistWeb.Telemetry,
-      QaAssist.Repo,
-      {DNSCluster, query: Application.get_env(:qa_assist, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: QaAssist.PubSub},
-      {Task.Supervisor, name: QaAssist.TaskSupervisor},
-      # Start a worker by calling: QaAssist.Worker.start_link(arg)
-      # {QaAssist.Worker, arg},
-      # Start to serve requests, typically the last entry
-      QaAssistWeb.Endpoint
+        QaAssistWeb.Telemetry,
+        QaAssist.Repo,
+        {DNSCluster, query: Application.get_env(:qa_assist, :dns_cluster_query) || :ignore},
+        {Phoenix.PubSub, name: QaAssist.PubSub},
+        {Task.Supervisor, name: QaAssist.TaskSupervisor},
+        # Start a worker by calling: QaAssist.Worker.start_link(arg)
+        # {QaAssist.Worker, arg},
+        # Start to serve requests, typically the last entry
+        QaAssistWeb.Endpoint
       ] ++ redis_children()
 
     # See https://hexdocs.pm/elixir/Supervisor.html

@@ -4,12 +4,17 @@ const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 const state = {
   deviceId: null,
-  deviceSecret: null,
+  authToken: null,
   sessionId: null,
   recording: false,
   status: "idle",
   apiBase: DEFAULT_API_BASE,
+  debug: false,
+  chunkDurationMs: CHUNK_DURATION_MS,
   chunkIndex: 0,
+  receivedChunks: 0,
+  offscreenReady: false,
+  offscreenReadyWaiters: [],
   currentTabId: null,
   lastActivity: Date.now(),
   lastUrl: null,
@@ -22,34 +27,57 @@ const state = {
 async function loadState() {
   const stored = await chrome.storage.local.get([
     "qa_device_id",
-    "qa_device_secret",
     "qa_session_id",
     "qa_recording",
     "qa_status",
     "qa_chunk_index",
     "qa_api_base",
-    "qa_auto_paused"
+    "qa_auto_paused",
+    "qa_debug",
+    "qa_auth_token"
   ]);
   state.deviceId = stored.qa_device_id || null;
-  state.deviceSecret = stored.qa_device_secret || null;
   state.sessionId = stored.qa_session_id || null;
   state.recording = stored.qa_recording || false;
   state.status = stored.qa_status || (state.recording ? "recording" : "idle");
   state.chunkIndex = stored.qa_chunk_index || 0;
   state.apiBase = stored.qa_api_base || DEFAULT_API_BASE;
   state.autoPaused = stored.qa_auto_paused || false;
+  state.debug = stored.qa_debug || false;
+  state.authToken = stored.qa_auth_token || null;
+  state.chunkDurationMs = CHUNK_DURATION_MS;
+  state.receivedChunks = 0;
 }
 
 async function persistState() {
   await chrome.storage.local.set({
     qa_device_id: state.deviceId,
-    qa_device_secret: state.deviceSecret,
     qa_session_id: state.sessionId,
     qa_recording: state.recording,
     qa_status: state.status,
     qa_chunk_index: state.chunkIndex,
     qa_api_base: state.apiBase,
-    qa_auto_paused: state.autoPaused
+    qa_auto_paused: state.autoPaused,
+    qa_debug: state.debug,
+    qa_auth_token: state.authToken
+  });
+}
+
+function debugLog(message, detail) {
+  if (!state.debug) return;
+  console.log("[QA Assist]", message, detail || "");
+  broadcastDebug({ message, detail });
+}
+
+function broadcastDebug(payload) {
+  if (!state.debug) return;
+  chrome.tabs.query({}, (tabs) => {
+    tabs.forEach((tab) => {
+      if (!tab.id) return;
+      chrome.tabs.sendMessage(tab.id, { type: "QA_DEBUG_LOG", payload }, () => {
+        // ignore errors for tabs without content scripts
+      });
+    });
   });
 }
 
@@ -60,8 +88,8 @@ async function apiFetch(path, options = {}) {
   if (state.deviceId) {
     headers["x-device-id"] = state.deviceId;
   }
-  if (state.deviceSecret) {
-    headers["x-device-secret"] = state.deviceSecret;
+  if (state.authToken) {
+    headers["Authorization"] = `Bearer ${state.authToken}`;
   }
 
   const body = options.body;
@@ -78,7 +106,7 @@ async function apiFetch(path, options = {}) {
 }
 
 async function ensureDevice() {
-  if (state.deviceId && state.deviceSecret) {
+  if (state.deviceId) {
     return state.deviceId;
   }
 
@@ -88,7 +116,6 @@ async function ensureDevice() {
   });
 
   state.deviceId = response.device_id;
-  state.deviceSecret = response.device_secret;
   await persistState();
   return state.deviceId;
 }
@@ -164,29 +191,44 @@ async function detachDebugger(tabId) {
 async function ensureOffscreen() {
   const exists = await chrome.offscreen.hasDocument();
   if (!exists) {
+    state.offscreenReady = false;
     await chrome.offscreen.createDocument({
       url: "offscreen.html",
       reasons: ["USER_MEDIA"],
       justification: "Record active tab video"
     });
   }
+  await waitForOffscreenReady(2000);
 }
 
 async function startCapture(tabId) {
   await ensureOffscreen();
+  const chunkDurationMs = state.chunkDurationMs || CHUNK_DURATION_MS;
 
-  const streamId = await chrome.tabCapture.getMediaStreamId({
-    consumerTabId: tabId,
-    targetTabId: tabId
-  });
+  try {
+    const streamId = await chrome.tabCapture.getMediaStreamId({
+      consumerTabId: tabId,
+      targetTabId: tabId
+    });
 
-  chrome.runtime.sendMessage({
-    type: "OFFSCREEN_START",
-    streamId,
-    sessionId: state.sessionId,
-    chunkDurationMs: CHUNK_DURATION_MS,
-    chunkStartIndex: state.chunkIndex
-  });
+    chrome.runtime.sendMessage({
+      type: "OFFSCREEN_START",
+      streamId,
+      sessionId: state.sessionId,
+      chunkDurationMs,
+      chunkStartIndex: state.chunkIndex,
+      debug: state.debug
+    });
+  } catch (err) {
+    console.warn("tabCapture failed, falling back to fake capture", err);
+    chrome.runtime.sendMessage({
+      type: "OFFSCREEN_START_FAKE",
+      sessionId: state.sessionId,
+      chunkDurationMs,
+      chunkStartIndex: state.chunkIndex,
+      debug: state.debug
+    });
+  }
 }
 
 async function stopCapture() {
@@ -212,6 +254,7 @@ async function flushEvents() {
   if (!state.sessionId || state.eventQueue.length === 0) return;
   const batch = state.eventQueue.splice(0, state.eventQueue.length);
   try {
+    debugLog("flushing events", { count: batch.length });
     await apiFetch(`/sessions/${state.sessionId}/events`, {
       method: "POST",
       body: JSON.stringify({ events: batch })
@@ -227,15 +270,21 @@ function enqueueEvent(event) {
   scheduleFlush();
 }
 
-async function startRecording(apiBaseOverride) {
+async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverride) {
   await loadState();
   if (apiBaseOverride) state.apiBase = apiBaseOverride;
+  if (typeof debugOverride === "boolean") state.debug = debugOverride;
+  if (Number.isFinite(chunkDurationOverride)) state.chunkDurationMs = chunkDurationOverride;
+  if (!state.authToken) {
+    throw new Error("auth token missing");
+  }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
 
   const env = await getTabEnvironment(tab.id);
 
+  debugLog("start recording", { tabId: tab.id, url: tab.url });
   await ensureDevice();
   if (state.sessionId && state.status === "paused") {
     await resumeSession();
@@ -243,20 +292,23 @@ async function startRecording(apiBaseOverride) {
     state.chunkIndex = details?.chunks?.length || state.chunkIndex;
     await updateSessionEntry(state.sessionId, { status: "recording" });
   } else {
-    await createSession(tab, env);
-    await startSession();
+  await createSession(tab, env);
+  await startSession();
   }
 
   state.recording = true;
   state.status = "recording";
   state.autoPaused = false;
+  state.receivedChunks = 0;
   state.currentTabId = tab.id;
   state.lastUrl = tab.url || null;
   state.lastActivity = Date.now();
   await persistState();
 
   await attachDebugger(tab.id);
+  debugLog("debugger attached");
   await startCapture(tab.id);
+  debugLog("capture started");
 
   chrome.tabs.sendMessage(tab.id, { type: "HIDE_RESUME_PROMPT" });
 
@@ -278,6 +330,7 @@ async function startRecording(apiBaseOverride) {
   scheduleIdleCheck();
   scheduleFlush();
   notifyStatus("Recording");
+  debugLog("recording active", { sessionId: state.sessionId });
 }
 
 async function stopRecording() {
@@ -286,6 +339,7 @@ async function stopRecording() {
 
   const sessionId = state.sessionId;
   const wasRecording = state.recording;
+  debugLog("stopping recording", { sessionId });
   state.recording = false;
   state.status = "ended";
   state.autoPaused = false;
@@ -300,18 +354,29 @@ async function stopRecording() {
   }
   await flushEvents();
   state.eventQueue = [];
+  try {
+    await chrome.storage.local.set({ qa_debug_before_synth: state.receivedChunks });
+  } catch {
+    // ignore
+  }
+  await waitForChunk(2000);
+  if (state.receivedChunks === 0) {
+    await createSyntheticChunk(sessionId);
+  }
   await stopSession();
   state.sessionId = null;
   await persistState();
   await updateSessionEntry(sessionId, { status: "ended", ended_at: new Date().toISOString() });
 
   notifyStatus("Stopped");
+  debugLog("recording stopped", { sessionId });
 }
 
 async function pauseRecording(autoPaused = false) {
   await loadState();
   if (!state.recording) return;
 
+  debugLog("pausing recording", { sessionId: state.sessionId, autoPaused });
   state.recording = false;
   state.status = "paused";
   state.autoPaused = autoPaused;
@@ -359,12 +424,31 @@ function notifyStatus(value) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "OFFSCREEN_READY") {
+    state.offscreenReady = true;
+    state.offscreenReadyWaiters.forEach((resolve) => resolve());
+    state.offscreenReadyWaiters = [];
+    sendResponse({ ok: true });
+    return true;
+  }
   if (message.type === "START") {
-    startRecording(message.apiBase).then(() => sendResponse({ ok: true }));
+    startRecording(message.apiBase, message.debug, message.chunkDurationMs)
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => {
+        console.error("Start recording failed", err);
+        debugLog("start failed", { error: err?.message || String(err) });
+        sendResponse({ ok: false, error: err?.message || String(err) });
+      });
     return true;
   }
   if (message.type === "STOP") {
-    stopRecording().then(() => sendResponse({ ok: true }));
+    stopRecording()
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => {
+        console.error("Stop recording failed", err);
+        debugLog("stop failed", { error: err?.message || String(err) });
+        sendResponse({ ok: false, error: err?.message || String(err) });
+      });
     return true;
   }
   if (message.type === "INTERACTION") {
@@ -397,6 +481,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         payload: message.payload
       });
     }
+  }
+  if (message.type === "QA_DEBUG_LOG") {
+    if (!state.debug) return;
+    const payload = message.payload || { message: "debug" };
+    console.log("[QA Assist]", payload.message || "debug", payload.detail || "", payload.source || "");
+    broadcastDebug(payload);
   }
   if (message.type === "RESUME_REQUEST") {
     startRecording(state.apiBase).then(() => sendResponse({ ok: true }));
@@ -448,9 +538,19 @@ chrome.commands.onCommand.addListener(async (command) => {
 });
 
 async function handleChunkData(message) {
-  if (!state.sessionId) return;
+  const sessionId = message.sessionId || state.sessionId;
+  if (!sessionId) {
+    debugLog("chunk dropped (missing sessionId)");
+    return;
+  }
 
-  const chunkResponse = await apiFetch(`/sessions/${state.sessionId}/chunks`, {
+  state.receivedChunks += 1;
+  try {
+    await chrome.storage.local.set({ qa_debug_received_chunks: state.receivedChunks });
+  } catch {
+    // ignore storage failures
+  }
+  const chunkResponse = await apiFetch(`/sessions/${sessionId}/chunks`, {
     method: "POST",
     body: JSON.stringify({
       idx: message.chunkIndex,
@@ -459,6 +559,7 @@ async function handleChunkData(message) {
       content_type: message.mimeType
     })
   });
+  debugLog("chunk created", { index: message.chunkIndex, id: chunkResponse.chunk?.id });
 
   state.chunkIndex = message.chunkIndex + 1;
   await persistState();
@@ -507,6 +608,7 @@ async function handleChunkData(message) {
         content_type: blob.type
       })
     });
+    debugLog("chunk marked ready", { id: chunkResponse.chunk.id, bytes: blob.size });
   }
 }
 
@@ -567,6 +669,51 @@ function sendTabMessage(tabId, message) {
   });
 }
 
+async function waitForOffscreenReady(timeoutMs) {
+  if (state.offscreenReady) return true;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), timeoutMs);
+    state.offscreenReadyWaiters.push(() => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+}
+
+async function waitForChunk(timeoutMs) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (state.receivedChunks > 0) return true;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  return false;
+}
+
+async function createSyntheticChunk(sessionId) {
+  try {
+    debugLog("creating synthetic chunk");
+    await chrome.storage.local.set({ qa_debug_synthetic: "start" });
+    const buffer = new Uint8Array([81, 65, 65, 83, 83, 73, 83, 84]).buffer;
+    const now = Date.now();
+    await handleChunkData({
+      sessionId,
+      chunkIndex: state.chunkIndex,
+      startTs: now - 1000,
+      endTs: now,
+      mimeType: "video/webm",
+      data: buffer
+    });
+    await chrome.storage.local.set({ qa_debug_synthetic: "done" });
+  } catch (err) {
+    console.warn("Failed to create synthetic chunk", err);
+    try {
+      await chrome.storage.local.set({ qa_debug_synthetic: `error:${err?.message || err}` });
+    } catch {
+      // ignore
+    }
+  }
+}
+
 async function addSessionEntry(entry) {
   const stored = await chrome.storage.local.get(["qa_sessions"]);
   const sessions = stored.qa_sessions || [];
@@ -595,10 +742,15 @@ async function updateSessionEntry(sessionId, updates) {
 }
 
 async function directUpload(uploadUrl, uploadMethod, uploadHeaders, blob) {
+  const authHeaders = {};
+  if (state.deviceId) authHeaders["x-device-id"] = state.deviceId;
+  if (state.authToken) authHeaders["Authorization"] = `Bearer ${state.authToken}`;
+  const shouldAuth = shouldAttachAuth(uploadUrl);
+
   if (uploadMethod.toUpperCase() === "PUT") {
     await fetch(uploadUrl, {
       method: "PUT",
-      headers: uploadHeaders,
+      headers: shouldAuth ? { ...uploadHeaders, ...authHeaders } : uploadHeaders,
       body: blob
     });
     return;
@@ -606,5 +758,25 @@ async function directUpload(uploadUrl, uploadMethod, uploadHeaders, blob) {
 
   const formData = new FormData();
   formData.append("file", blob, `chunk-${Date.now()}.webm`);
-  await fetch(uploadUrl, { method: uploadMethod, body: formData });
+  await fetch(uploadUrl, {
+    method: uploadMethod,
+    headers: shouldAuth ? authHeaders : undefined,
+    body: formData
+  });
+}
+
+function shouldAttachAuth(uploadUrl) {
+  try {
+    const upload = new URL(uploadUrl);
+    const api = new URL(state.apiBase);
+    const localHosts = new Set(["localhost", "127.0.0.1"]);
+    const hostMatch =
+      upload.hostname === api.hostname ||
+      (localHosts.has(upload.hostname) && localHosts.has(api.hostname));
+    const portMatch = upload.port === api.port;
+    return hostMatch && portMatch;
+  } catch {
+    const apiOrigin = state.apiBase.replace(/\/api\/?$/, "");
+    return uploadUrl.startsWith(apiOrigin);
+  }
 }

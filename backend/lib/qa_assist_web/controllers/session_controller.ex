@@ -6,13 +6,24 @@ defmodule QaAssistWeb.SessionController do
   alias QaAssistWeb.ControllerHelpers
 
   def index(conn, _params) do
-    case ControllerHelpers.require_device(conn) do
-      {:ok, device} ->
-        sessions = Recording.list_sessions(device.id)
-        json(conn, Enum.map(sessions, &session_summary/1))
+    with {:ok, user} <- ControllerHelpers.require_user(conn) do
+      case ControllerHelpers.fetch_device_id(conn) do
+        nil ->
+          sessions = Recording.list_sessions_by_user(user.id)
+          json(conn, Enum.map(sessions, &session_summary/1))
 
-      {:error, conn} ->
-        conn
+        _device_id ->
+          case ControllerHelpers.require_device(conn) do
+            {:ok, device} ->
+              sessions = Recording.list_sessions(device.id)
+              json(conn, Enum.map(sessions, &session_summary/1))
+
+            {:error, conn} ->
+              conn
+          end
+      end
+    else
+      {:error, conn} -> conn
     end
   end
 

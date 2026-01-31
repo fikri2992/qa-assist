@@ -31,7 +31,8 @@ defmodule QaAssist.Artifacts do
       session ->
         events =
           from(e in Event,
-            where: e.session_id == ^session_id and e.type in ["interaction", "marker", "annotation"],
+            where:
+              e.session_id == ^session_id and e.type in ["interaction", "marker", "annotation"],
             order_by: [asc: e.ts]
           )
           |> Repo.all()

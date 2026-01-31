@@ -9,12 +9,13 @@ defmodule QaAssist.Devices.Device do
     field :metadata, :map
     field :last_seen, :utc_datetime_usec
     field :secret, :string
+    belongs_to :user, QaAssist.Accounts.User
 
     timestamps(type: :utc_datetime_usec)
   end
 
   def changeset(device, attrs) do
     device
-    |> cast(attrs, [:metadata, :last_seen, :secret])
+    |> cast(attrs, [:metadata, :last_seen, :secret, :user_id])
   end
 end

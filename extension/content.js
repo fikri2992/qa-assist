@@ -181,6 +181,25 @@
     }
   }
 
+  function appendDebugLine(payload) {
+    const body = document.getElementById("qa-observer-body");
+    if (!body) return;
+    const line = document.createElement("div");
+    const message = typeof payload === "string" ? payload : payload?.message || "debug";
+    const source = payload?.source ? `[${payload.source}] ` : "";
+    let detailText = "";
+    if (payload?.detail) {
+      try {
+        detailText = ` ${JSON.stringify(payload.detail)}`;
+      } catch {
+        detailText = " [detail]";
+      }
+    }
+    line.textContent = `${new Date().toISOString()} ${source}${message}${detailText}`;
+    body.appendChild(line);
+    body.scrollTop = body.scrollHeight;
+  }
+
   function openAnnotation() {
     if (annotationEl) {
       const textarea = annotationEl.querySelector("textarea");
@@ -429,6 +448,9 @@
     if (message.type === "HIDE_RESUME_PROMPT") {
       hideResumePrompt();
     }
+    if (message.type === "QA_DEBUG_LOG") {
+      appendDebugLine(message.payload);
+    }
   });
 
   ["click", "keydown", "scroll", "mousemove"].forEach((type) => {
@@ -446,5 +468,10 @@
       },
       { passive: true, capture: true }
     );
+  });
+
+  safeSendMessage({
+    type: "QA_DEBUG_LOG",
+    payload: { message: "content script ready", detail: { url: window.location.href }, source: "content" }
   });
 })();

@@ -4,8 +4,8 @@ import { ref, computed } from "vue";
 export const useSessionsStore = defineStore("sessions", () => {
   // Connection
   const apiBase = ref(localStorage.getItem("qa_api_base") || "http://localhost:4000/api");
-  const deviceId = ref(localStorage.getItem("qa_device_id") || "");
-  const deviceSecret = ref(localStorage.getItem("qa_device_secret") || "");
+  const authToken = ref(localStorage.getItem("qa_auth_token") || "");
+  const authEmail = ref(localStorage.getItem("qa_auth_email") || "");
 
   // Sessions
   const sessions = ref([]);
@@ -25,6 +25,7 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   // Computed
   const currentChunk = computed(() => chunks.value[currentChunkIndex.value] || null);
+  const isAuthenticated = computed(() => !!authToken.value);
 
   const annotations = computed(() => 
     events.value.filter((e) => e.type === "annotation")
@@ -57,8 +58,7 @@ export const useSessionsStore = defineStore("sessions", () => {
   // Actions
   async function fetchJson(url, options = {}) {
     const headers = { ...(options.headers || {}) };
-    if (deviceId.value) headers["x-device-id"] = deviceId.value;
-    if (deviceSecret.value) headers["x-device-secret"] = deviceSecret.value;
+    if (authToken.value) headers["Authorization"] = `Bearer ${authToken.value}`;
     const res = await fetch(url, { ...options, headers });
     if (!res.ok) throw new Error(`Request failed: ${res.status}`);
     return res.json();
@@ -66,13 +66,53 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   function saveConnection() {
     localStorage.setItem("qa_api_base", apiBase.value);
-    localStorage.setItem("qa_device_id", deviceId.value);
-    localStorage.setItem("qa_device_secret", deviceSecret.value);
+    localStorage.setItem("qa_auth_token", authToken.value);
+    localStorage.setItem("qa_auth_email", authEmail.value);
+  }
+
+  async function login(email, password) {
+    if (!email || !password) {
+      error.value = "Email and password are required.";
+      return;
+    }
+
+    loading.value = true;
+    error.value = null;
+    try {
+      const res = await fetch(`${apiBase.value}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) throw new Error(`Login failed: ${res.status}`);
+      const data = await res.json();
+      authToken.value = data.token;
+      authEmail.value = email;
+      saveConnection();
+      await loadSessions();
+    } catch (err) {
+      error.value = err.message;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  function logout() {
+    authToken.value = "";
+    sessions.value = [];
+    currentSession.value = null;
+    analysis.value = null;
+    events.value = [];
+    artifacts.value = [];
+    chunks.value = [];
+    currentChunkIndex.value = 0;
+    saveConnection();
+  }
   }
 
   async function loadSessions() {
-    if (!apiBase.value || !deviceId.value || !deviceSecret.value) {
-      error.value = "API URL, Device ID, and Device Secret are required.";
+    if (!apiBase.value || !authToken.value) {
+      error.value = "Login required.";
       return;
     }
 
@@ -81,7 +121,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     error.value = null;
 
     try {
-      sessions.value = await fetchJson(`${apiBase.value}/sessions?device_id=${deviceId.value}`);
+      sessions.value = await fetchJson(`${apiBase.value}/sessions`);
     } catch (err) {
       error.value = err.message;
       sessions.value = [];
@@ -149,8 +189,8 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   return {
     apiBase,
-    deviceId,
-    deviceSecret,
+    authToken,
+    authEmail,
     sessions,
     currentSession,
     loading,
@@ -161,11 +201,14 @@ export const useSessionsStore = defineStore("sessions", () => {
     chunks,
     currentChunkIndex,
     currentChunk,
+    isAuthenticated,
     annotations,
     markers,
     interactions,
     logs,
     issues,
+    login,
+    logout,
     loadSessions,
     selectSession,
     setCurrentChunk,

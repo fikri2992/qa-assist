@@ -1,8 +1,32 @@
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const http = require('http');
 const { test, expect, chromium } = require('@playwright/test');
 
-const API_BASE = process.env.QA_API_BASE || 'http://127.0.0.1:4000/api';
+const STATE_FILE = path.join(__dirname, '.e2e-state.json');
+const DEBUG = process.env.QA_E2E_DEBUG === '1';
+const VISUAL = process.env.QA_E2E_VISUAL === '1' || DEBUG;
+const AUTH_EMAIL = process.env.QA_E2E_EMAIL || 'demo@qaassist.local';
+const AUTH_PASSWORD = process.env.QA_E2E_PASSWORD || 'demo123';
+const E2E_CHUNK_MS = process.env.QA_E2E_CHUNK_MS
+  ? Number(process.env.QA_E2E_CHUNK_MS)
+  : 3000;
+const E2E_RECORD_MS = process.env.QA_E2E_RECORD_MS
+  ? Number(process.env.QA_E2E_RECORD_MS)
+  : 5000;
+const API_BASE = (() => {
+  if (process.env.QA_API_BASE) return process.env.QA_API_BASE;
+  if (fs.existsSync(STATE_FILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
+      if (data.apiBase) return data.apiBase;
+    } catch {
+      // ignore
+    }
+  }
+  return 'http://127.0.0.1:4000/api';
+})();
 
 function createTestServer() {
   const html = `<!doctype html>
@@ -14,17 +38,67 @@ function createTestServer() {
       body { font-family: sans-serif; padding: 24px; }
       .card { padding: 16px; border: 1px solid #ccc; border-radius: 8px; width: 360px; }
       button { padding: 8px 12px; }
+      #qa-observer {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        width: 320px;
+        max-height: 40vh;
+        background: rgba(15, 23, 42, 0.95);
+        color: #e2e8f0;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 10px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 11px;
+        z-index: 2147483647;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.4);
+        overflow: hidden;
+        pointer-events: none;
+      }
+      #qa-observer-header {
+        padding: 6px 10px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        background: rgba(30, 41, 59, 0.9);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      }
+      #qa-observer-body {
+        max-height: calc(40vh - 28px);
+        overflow: auto;
+        padding: 8px 10px;
+        display: grid;
+        gap: 4px;
+        white-space: pre-wrap;
+      }
     </style>
   </head>
   <body>
+    <div id="qa-observer">
+      <div id="qa-observer-header">QA Assist Observer</div>
+      <div id="qa-observer-body"></div>
+    </div>
     <div class="card">
       <h1>Test Page</h1>
       <label for="nameInput">Name</label>
-      <input id="nameInput" type="text" />
-      <button id="saveBtn">Save</button>
-      <div id="result"></div>
+      <input id="nameInput" data-test="name-input" type="text" />
+      <button id="saveBtn" data-test="save-btn">Save</button>
+      <div id="result" data-test="result"></div>
     </div>
     <script>
+      (function () {
+        const body = document.getElementById('qa-observer-body');
+        window.__qaObserver = {
+          log(message) {
+            if (!body) return;
+            const line = document.createElement('div');
+            line.textContent = new Date().toISOString() + ' ' + message;
+            body.appendChild(line);
+            body.scrollTop = body.scrollHeight;
+          }
+        };
+        window.__qaObserver.log('Test page ready');
+      })();
+
       const btn = document.getElementById('saveBtn');
       const input = document.getElementById('nameInput');
       const result = document.getElementById('result');
@@ -54,14 +128,121 @@ function createTestServer() {
   return server;
 }
 
-async function pollUntil(fn, timeoutMs, intervalMs) {
+async function pollUntil(fn, timeoutMs, intervalMs, label, page) {
   const start = Date.now();
+  let lastLog = 0;
   while (Date.now() - start < timeoutMs) {
     const result = await fn();
     if (result) return result;
+    if (label && Date.now() - lastLog > 5000) {
+      await logStep(`waiting for ${label}...`, page);
+      lastLog = Date.now();
+    }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
   throw new Error('Timed out waiting for condition');
+}
+
+function attachPageLogging(page, label) {
+  if (!DEBUG) return;
+  page.on('console', (msg) => {
+    console.log(`[${label} console] ${msg.type()}: ${msg.text()}`);
+  });
+  page.on('pageerror', (err) => {
+    console.log(`[${label} error] ${err.message}`);
+  });
+}
+
+async function logStep(message, page) {
+  const line = `[e2e] ${new Date().toISOString()} ${message}`;
+  console.log(line);
+  if (page) {
+    try {
+      await page.evaluate((msg) => {
+        window.__qaObserver?.log?.(msg);
+      }, message);
+    } catch {
+      // page may be closed or not ready
+    }
+  }
+}
+
+async function getServiceWorker(context, extensionId) {
+  const existing = context.serviceWorkers().find((sw) => {
+    try {
+      return new URL(sw.url()).host === extensionId;
+    } catch {
+      return false;
+    }
+  });
+  if (existing) return existing;
+  return context.waitForEvent('serviceworker');
+}
+
+let cachedExtensionPage = null;
+
+async function getExtensionPage(context, extensionId) {
+  const url = `chrome-extension://${extensionId}/popup.html`;
+  if (cachedExtensionPage && !cachedExtensionPage.isClosed()) {
+    return cachedExtensionPage;
+  }
+  const existing = context.pages().find((page) => page.url().startsWith(url));
+  if (existing) {
+    cachedExtensionPage = existing;
+    return existing;
+  }
+  const page = await context.newPage();
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+  cachedExtensionPage = page;
+  return page;
+}
+
+async function sendExtensionMessage(context, extensionId, message) {
+  const page = await getExtensionPage(context, extensionId);
+  return page.evaluate((msg) => new Promise((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve({ ok: false, error: 'timeout' });
+    }, 5000);
+    chrome.runtime.sendMessage(msg, (response) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(response);
+    });
+  }), message);
+}
+
+async function readDeviceInfo(context, extensionId) {
+  const page = await getExtensionPage(context, extensionId);
+  return page.evaluate(() => new Promise((resolve) => {
+    chrome.storage.local.get(['qa_device_id'], resolve);
+  }));
+}
+
+async function readExtensionState(context, extensionId) {
+  const page = await getExtensionPage(context, extensionId);
+  return page.evaluate(() => new Promise((resolve) => {
+    chrome.storage.local.get(['qa_recording', 'qa_status', 'qa_session_id'], resolve);
+  }));
+}
+
+async function readDebugSynthetic(context, extensionId) {
+  const page = await getExtensionPage(context, extensionId);
+  return page.evaluate(() => new Promise((resolve) => {
+    chrome.storage.local.get(['qa_debug_synthetic', 'qa_debug_before_synth', 'qa_debug_received_chunks'], resolve);
+  }));
+}
+
+async function readOffscreenState(context, extensionId) {
+  const page = await getExtensionPage(context, extensionId);
+  return page.evaluate(async () => {
+    if (!chrome.offscreen?.hasDocument) return { supported: false };
+    const exists = await chrome.offscreen.hasDocument();
+    return { supported: true, exists };
+  });
 }
 
 test('records a full session with extension + backend + AI', async () => {
@@ -70,63 +251,114 @@ test('records a full session with extension + backend + AI', async () => {
   const serverUrl = 'http://127.0.0.1:4174/';
 
   const extensionPath = path.join(__dirname, '..', '..', 'extension');
-  const userDataDir = path.join(__dirname, '..', '..', '.playwright-user-data');
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'qa-assist-e2e-'));
+
+  const launchArgs = [
+    `--disable-extensions-except=${extensionPath}`,
+    `--load-extension=${extensionPath}`,
+  ];
+  if (VISUAL) {
+    launchArgs.push('--auto-open-devtools-for-tabs');
+  }
 
   const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
-    args: [
-      `--disable-extensions-except=${extensionPath}`,
-      `--load-extension=${extensionPath}`,
-    ],
+    devtools: VISUAL,
+    slowMo: VISUAL ? 150 : 0,
+    args: launchArgs,
   });
 
   try {
+    await logStep('opening test page');
     const appPage = await context.newPage();
+    attachPageLogging(appPage, 'app');
     await appPage.goto(serverUrl, { waitUntil: 'domcontentloaded' });
 
+    await logStep('waiting for extension service worker', appPage);
     const worker = context.serviceWorkers().length
       ? context.serviceWorkers()[0]
       : await context.waitForEvent('serviceworker');
 
     const extensionId = new URL(worker.url()).host;
-    const popup = await context.newPage();
-    await popup.goto(`chrome-extension://${extensionId}/popup.html`);
+    await logStep(`extension id: ${extensionId}`, appPage);
+    await getExtensionPage(context, extensionId);
+    await logStep('logging in', appPage);
+    const authRes = await context.request.post(`${API_BASE}/auth/login`, {
+      data: { email: AUTH_EMAIL, password: AUTH_PASSWORD },
+    });
+    if (!authRes.ok()) throw new Error(`Auth failed: ${authRes.status()}`);
+    const authData = await authRes.json();
+    const authToken = authData.token;
+    const authPage = await getExtensionPage(context, extensionId);
+    await authPage.evaluate(({ token, email }) => {
+      chrome.storage.local.set({ qa_auth_token: token, qa_auth_email: email });
+    }, { token: authToken, email: AUTH_EMAIL });
 
-    await popup.click('#mainBtn');
-    await popup.waitForFunction(() => {
-      const label = document.querySelector('.btn-label');
-      return label && label.textContent.includes('Stop');
+    await logStep('starting recording', appPage);
+    await appPage.bringToFront();
+    await sendExtensionMessage(context, extensionId, {
+      type: 'START',
+      apiBase: API_BASE,
+      debug: VISUAL,
+      chunkDurationMs: E2E_CHUNK_MS
     });
 
-    await appPage.click('#nameInput');
-    await appPage.type('#nameInput', 'Alice');
-    await appPage.click('#saveBtn');
+    const offscreenState = await readOffscreenState(context, extensionId);
+    await logStep(`offscreen document: ${JSON.stringify(offscreenState)}`, appPage);
+
+    await logStep('waiting for recording state', appPage);
+    await pollUntil(async () => {
+      const state = await readExtensionState(context, extensionId);
+      return state?.qa_recording && state?.qa_session_id ? state : null;
+    }, 15000, 500, 'recording state', appPage);
+
+    await logStep('performing interactions', appPage);
+    await appPage.click('[data-test="name-input"]');
+    if (VISUAL) await appPage.waitForTimeout(300);
+    await appPage.type('[data-test="name-input"]', 'Alice');
+    if (VISUAL) await appPage.waitForTimeout(300);
+    await appPage.click('[data-test="save-btn"]');
+    if (VISUAL) await appPage.waitForTimeout(300);
     await appPage.mouse.wheel(0, 400);
 
-    const deviceInfo = await popup.evaluate(() => new Promise((resolve) => {
-      chrome.storage.local.get(['qa_device_id', 'qa_device_secret'], resolve);
-    }));
+    await logStep(`waiting ${E2E_RECORD_MS}ms before stop`, appPage);
+    await appPage.waitForTimeout(E2E_RECORD_MS);
 
-    await popup.click('#mainBtn');
-    await popup.waitForFunction(() => {
-      const label = document.querySelector('.btn-label');
-      return label && label.textContent.includes('Start');
-    });
+    await logStep('reading device credentials', appPage);
+    const deviceInfo = await pollUntil(
+      () => readDeviceInfo(context, extensionId),
+      15000,
+      500,
+      'device credentials',
+      appPage
+    );
+
+    await logStep('stopping recording', appPage);
+    await appPage.bringToFront();
+    await sendExtensionMessage(context, extensionId, { type: 'STOP' });
+
+    await appPage.waitForTimeout(2500);
+    const syntheticStatus = await readDebugSynthetic(context, extensionId);
+    await logStep(
+      `synthetic chunk status: ${syntheticStatus?.qa_debug_synthetic || 'none'} | before=${syntheticStatus?.qa_debug_before_synth ?? 'n/a'} | received=${syntheticStatus?.qa_debug_received_chunks ?? 'n/a'}`,
+      appPage
+    );
 
     const headers = {
-      'x-device-id': deviceInfo.qa_device_id,
-      'x-device-secret': deviceInfo.qa_device_secret,
+      Authorization: `Bearer ${authToken}`,
     };
 
+    await logStep('polling for ended session', appPage);
     const session = await pollUntil(async () => {
-      const res = await context.request.get(`${API_BASE}/sessions?device_id=${deviceInfo.qa_device_id}`, { headers });
+      const res = await context.request.get(`${API_BASE}/sessions`, { headers });
       if (!res.ok()) return null;
       const sessions = await res.json();
       if (!Array.isArray(sessions) || sessions.length === 0) return null;
       const latest = sessions[0];
       return latest.status === 'ended' ? latest : null;
-    }, 60000, 1500);
+    }, 60000, 1500, 'session ended', appPage);
 
+    await logStep('polling for ready chunk', appPage);
     const sessionDetail = await pollUntil(async () => {
       const res = await context.request.get(`${API_BASE}/sessions/${session.id}`, { headers });
       if (!res.ok()) return null;
@@ -135,24 +367,32 @@ test('records a full session with extension + backend + AI', async () => {
       const chunk = data.chunks[0];
       if (chunk.status !== 'ready') return null;
       return data;
-    }, 60000, 1500);
+    }, 60000, 1500, 'chunk ready', appPage);
 
+    await logStep('fetching events', appPage);
     const eventsRes = await context.request.get(`${API_BASE}/sessions/${session.id}/events?limit=1000`, { headers });
     const events = await eventsRes.json();
 
     expect(sessionDetail.chunks.length).toBeGreaterThan(0);
     expect(events.length).toBeGreaterThan(0);
 
+    await logStep('polling for analysis', appPage);
     const analysis = await pollUntil(async () => {
       const res = await context.request.get(`${API_BASE}/sessions/${session.id}/analysis`, { headers });
       if (!res.ok()) return null;
       const data = await res.json();
       return data.status === 'done' ? data : null;
-    }, 90000, 2000);
+    }, 90000, 2000, 'analysis done', appPage);
 
     expect(analysis.status).toBe('done');
   } finally {
-    await context.close();
+    if (context) {
+      try {
+        await context.close();
+      } catch {
+        // ignore already closed contexts
+      }
+    }
     await new Promise((resolve) => server.close(resolve));
   }
 });

@@ -4,14 +4,13 @@ defmodule QaAssist.Devices do
   alias QaAssist.Devices.Device
   alias QaAssist.Repo
 
-  def create_device(metadata \\ %{}) when is_map(metadata) do
-    secret = generate_secret()
-
+  def create_device(user_id, metadata \\ %{})
+      when is_binary(user_id) and is_map(metadata) do
     %Device{}
     |> Device.changeset(%{
       metadata: metadata,
       last_seen: DateTime.utc_now(),
-      secret: secret
+      user_id: user_id
     })
     |> Repo.insert()
   end
@@ -20,11 +19,11 @@ defmodule QaAssist.Devices do
     Repo.get(Device, id)
   end
 
-  def verify_device(id, secret) when is_binary(secret) do
-    Repo.get_by(Device, id: id, secret: secret)
+  def set_user(%Device{} = device, user_id) when is_binary(user_id) do
+    device
+    |> Device.changeset(%{user_id: user_id})
+    |> Repo.update()
   end
-
-  def verify_device(_id, _secret), do: nil
 
   def touch_device(%Device{} = device) do
     device
@@ -35,11 +34,5 @@ defmodule QaAssist.Devices do
   def list_devices do
     from(d in Device, order_by: [desc: d.inserted_at])
     |> Repo.all()
-  end
-
-  defp generate_secret do
-    24
-    |> :crypto.strong_rand_bytes()
-    |> Base.url_encode64(padding: false)
   end
 end

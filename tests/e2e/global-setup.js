@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { spawn, spawnSync } = require('child_process');
+const net = require('net');
 
 const ROOT = path.join(__dirname, '..', '..');
 const BACKEND_DIR = path.join(ROOT, 'backend');
@@ -20,7 +21,7 @@ function runSync(command, args, options = {}) {
   return result.status === 0;
 }
 
-async function waitForUrl(url, timeoutMs) {
+async function waitForUrl(url, timeoutMs = 60000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
@@ -36,13 +37,50 @@ async function waitForUrl(url, timeoutMs) {
 
 function startProcess(name, command, args, options = {}) {
   ensureDir(LOG_DIR);
-  const out = fs.openSync(path.join(LOG_DIR, `${name}.log`), 'a');
-  const proc = spawn(command, args, {
-    shell: true,
+  const logPath = path.join(LOG_DIR, `${name}.log`);
+  fs.writeFileSync(logPath, '');
+  const out = fs.openSync(logPath, 'a');
+  const procCommand = process.platform === 'win32' ? 'cmd' : command;
+  const procArgs =
+    process.platform === 'win32' ? ['/c', command, ...args] : args;
+  const proc = spawn(procCommand, procArgs, {
+    shell: false,
     stdio: ['ignore', out, out],
     ...options,
   });
   return proc;
+}
+
+function isPortFree(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once('error', () => resolve(false));
+    server.once('listening', () => {
+      server.close(() => resolve(true));
+    });
+    server.listen(port, '127.0.0.1');
+  });
+}
+
+function pickRandomPort() {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const { port } = server.address();
+      server.close(() => resolve(port));
+    });
+  });
+}
+
+async function resolvePort(preferred) {
+  if (preferred && Number.isFinite(preferred)) {
+    const free = await isPortFree(preferred);
+    if (!free) {
+      throw new Error(`Port ${preferred} is already in use`);
+    }
+    return preferred;
+  }
+  return pickRandomPort();
 }
 
 module.exports = async () => {
@@ -54,12 +92,23 @@ module.exports = async () => {
 
   // Ensure backend database exists and is migrated.
   runSync('mix', ['ecto.create'], { cwd: BACKEND_DIR });
-  runSync('mix', ['ecto.migrate'], { cwd: BACKEND_DIR });
+  const migrated = runSync('mix', ['ecto.migrate'], { cwd: BACKEND_DIR });
+  if (!migrated) {
+    throw new Error('mix ecto.migrate failed');
+  }
+  runSync('mix', ['run', 'priv/repo/seeds.exs'], { cwd: BACKEND_DIR });
+
+  const backendPort = await resolvePort(
+    process.env.QA_BACKEND_PORT ? Number(process.env.QA_BACKEND_PORT) : null
+  );
+  const aiPort = await resolvePort(
+    process.env.QA_AI_PORT ? Number(process.env.QA_AI_PORT) : null
+  );
 
   const backendEnv = {
     ...process.env,
-    AI_SERVICE_URL: process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000',
-    PORT: process.env.QA_BACKEND_PORT || '4000',
+    AI_SERVICE_URL: process.env.AI_SERVICE_URL || `http://127.0.0.1:${aiPort}`,
+    PORT: String(backendPort),
   };
 
   const backend = startProcess('backend', 'mix', ['phx.server'], {
@@ -73,17 +122,20 @@ module.exports = async () => {
     PYTHONUNBUFFERED: '1',
   };
 
-  const ai = startProcess('ai', 'python', ['-m', 'uvicorn', 'ai.app.main:app', '--host', '127.0.0.1', '--port', '8000'], {
+  const ai = startProcess('ai', 'python', ['-m', 'uvicorn', 'ai.app.main:app', '--host', '127.0.0.1', '--port', String(aiPort)], {
     cwd: ROOT,
     env: aiEnv,
   });
 
-  await waitForUrl('http://127.0.0.1:4000/');
-  await waitForUrl('http://127.0.0.1:8000/health');
+  await waitForUrl(`http://127.0.0.1:${backendPort}/`);
+  await waitForUrl(`http://127.0.0.1:${aiPort}/health`);
 
   const state = {
     backendPid: backend.pid,
     aiPid: ai.pid,
+    backendPort,
+    aiPort,
+    apiBase: `http://127.0.0.1:${backendPort}/api`,
   };
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 };

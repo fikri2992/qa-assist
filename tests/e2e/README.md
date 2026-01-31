@@ -18,3 +18,6 @@ npm run test:e2e
 - The test launches Chromium in headed mode with the extension loaded.
 - It starts backend + AI service automatically (set `QA_E2E_SKIP_SERVERS=1` to use existing servers).
 - Logs are written to `tests/e2e/.logs/`.
+- Set `QA_E2E_VISUAL=1` to slow down interactions and auto-open DevTools for tabs.
+- The test page includes a "QA Assist Observer" panel showing live progress and extension debug logs.
+- Auth uses the seeded user by default: `demo@qaassist.local` / `demo123`. Override with `QA_E2E_EMAIL` and `QA_E2E_PASSWORD`.

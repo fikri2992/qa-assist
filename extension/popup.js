@@ -9,6 +9,11 @@ const markerBtn = document.getElementById("markerBtn");
 const annotateBtn = document.getElementById("annotateBtn");
 const tabs = document.querySelectorAll(".tab");
 const tabContents = document.querySelectorAll(".tab-content");
+const loginPanel = document.getElementById("loginPanel");
+const loginEmail = document.getElementById("loginEmail");
+const loginPassword = document.getElementById("loginPassword");
+const loginBtn = document.getElementById("loginBtn");
+const loginStatus = document.getElementById("loginStatus");
 
 const DEFAULT_API_BASE = "http://localhost:4000/api";
 const DASHBOARD_URL = "http://localhost:5173";
@@ -16,6 +21,7 @@ const DASHBOARD_URL = "http://localhost:5173";
 let isRecording = false;
 let recordingStartTime = null;
 let durationInterval = null;
+let authToken = null;
 
 // Tab switching
 tabs.forEach(tab => {
@@ -31,15 +37,34 @@ tabs.forEach(tab => {
 });
 
 // Initialize state
-chrome.storage.local.get(["qa_recording", "qa_status", "qa_recording_start"], (state) => {
-  isRecording = state.qa_recording || false;
-  recordingStartTime = state.qa_recording_start ? new Date(state.qa_recording_start) : null;
-  updateUI(state.qa_status || (isRecording ? "recording" : "idle"));
-});
+chrome.storage.local.get(
+  ["qa_recording", "qa_status", "qa_recording_start", "qa_auth_token", "qa_auth_email"],
+  (state) => {
+    authToken = state.qa_auth_token || null;
+    if (state.qa_auth_email) {
+      loginEmail.value = state.qa_auth_email;
+    }
+    updateAuthUI();
+
+    isRecording = state.qa_recording || false;
+    recordingStartTime = state.qa_recording_start ? new Date(state.qa_recording_start) : null;
+    updateUI(state.qa_status || (isRecording ? "recording" : "idle"));
+  }
+);
 
 syncSessions().finally(loadRecentSessions);
 
 function updateUI(status) {
+  if (!authToken) {
+    recordingControl.dataset.state = "idle";
+    mainBtn.querySelector(".btn-label").textContent = "Start Recording";
+    statusText.textContent = "Login required to record";
+    quickActions.classList.add("hidden");
+    stopDurationTimer();
+    durationEl.textContent = "";
+    return;
+  }
+
   const state = status === "recording" ? "recording" : "idle";
   recordingControl.dataset.state = state;
   
@@ -80,7 +105,50 @@ function stopDurationTimer() {
   recordingStartTime = null;
 }
 
+function updateAuthUI() {
+  const loggedIn = !!authToken;
+  loginPanel.classList.toggle("hidden", loggedIn);
+  mainBtn.disabled = !loggedIn;
+}
+
+async function handleLogin() {
+  const email = loginEmail.value.trim();
+  const password = loginPassword.value;
+  if (!email || !password) {
+    loginStatus.textContent = "Email and password required.";
+    return;
+  }
+
+  loginStatus.textContent = "Signing in...";
+  try {
+    const authUrl = DEFAULT_API_BASE.replace(/\/api\/?$/, "") + "/api/auth/login";
+    const res = await fetch(authUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) throw new Error(`Login failed: ${res.status}`);
+    const data = await res.json();
+    authToken = data.token;
+    await chrome.storage.local.set({ qa_auth_token: authToken, qa_auth_email: email });
+    loginPassword.value = "";
+    loginStatus.textContent = "Signed in.";
+    updateAuthUI();
+    updateUI(isRecording ? "recording" : "idle");
+    syncSessions().finally(loadRecentSessions);
+  } catch (err) {
+    loginStatus.textContent = err.message || "Login failed.";
+  }
+}
+
+loginBtn.addEventListener("click", handleLogin);
+
 mainBtn.addEventListener("click", () => {
+  if (!authToken) {
+    loginStatus.textContent = "Login required.";
+    return;
+  }
+
   if (isRecording) {
     chrome.runtime.sendMessage({ type: "STOP" }, () => {
       isRecording = false;
@@ -133,10 +201,10 @@ function loadRecentSessions() {
 
 async function syncSessions() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(["qa_device_id", "qa_device_secret"], async (state) => {
+    chrome.storage.local.get(["qa_device_id", "qa_auth_token"], async (state) => {
       const deviceId = state.qa_device_id;
-      const deviceSecret = state.qa_device_secret;
-      if (!deviceId) {
+      const token = state.qa_auth_token;
+      if (!deviceId || !token) {
         resolve();
         return;
       }
@@ -144,7 +212,7 @@ async function syncSessions() {
         const res = await fetch(`${DEFAULT_API_BASE}/sessions?device_id=${deviceId}`, {
           headers: {
             "x-device-id": deviceId,
-            "x-device-secret": deviceSecret || "",
+            "Authorization": `Bearer ${token}`,
           },
         });
         if (!res.ok) throw new Error(`Failed: ${res.status}`);
