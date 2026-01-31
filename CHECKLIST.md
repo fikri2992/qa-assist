@@ -11,7 +11,7 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 - [~] Environment metadata (window/screen size, OS, browser version). (viewport/screen/platform/userAgentData added)
 - [x] Store session artifacts in backend. (backend/lib/qa_assist/storage/local.ex)
 - [~] AI analysis per chunk. (stub only)
-- [~] Aggregated report after session end. (summary exists, not gated on session end)
+- [x] Aggregated report after session end. (session analysis on stop)
 
 ## 02 — Requirements and Decisions (`plan/02-requirements-and-decisions.md`)
 - [x] Start/stop recording from extension UI. (extension/popup.*)
