@@ -238,7 +238,7 @@ class AdkOrchestrator:
             f"{task}\n\nReturn ONLY valid JSON. Input JSON:\n"
             f"{json.dumps(payload, ensure_ascii=False)}"
         )
-        response_text = await self._run_agent(agent, prompt)
+        response_text = await self._run_agent_with_payload(agent, prompt, payload)
         parsed = self._parse_json(response_text)
 
         issues = parsed.get("issues")
@@ -253,13 +253,31 @@ class AdkOrchestrator:
             root_cause=parsed.get("suspected_root_cause"),
         )
 
+    async def _run_agent_with_payload(self, agent: LlmAgent, prompt: str, payload: Dict[str, Any]) -> str:
+        if agent.name == "video_analyst":
+            video_url = payload.get("video_url")
+            if video_url:
+                content_type = payload.get("chunk", {}).get("content_type") or "video/webm"
+                try:
+                    parts = [
+                        types.Part.from_uri(video_url, mime_type=content_type),
+                        types.Part(text=prompt),
+                    ]
+                    return await self._run_agent_parts(agent, parts)
+                except Exception:
+                    pass
+        return await self._run_agent(agent, prompt)
+
     async def _run_agent(self, agent: LlmAgent, prompt: str) -> str:
+        return await self._run_agent_parts(agent, [types.Part(text=prompt)])
+
+    async def _run_agent_parts(self, agent: LlmAgent, parts: List[types.Part]) -> str:
         session_id = f"{agent.name}-{uuid.uuid4().hex}"
         await self.session_service.create_session(
             app_name=self.app_name, user_id=self.user_id, session_id=session_id
         )
         runner = Runner(agent=agent, app_name=self.app_name, session_service=self.session_service)
-        content = types.Content(role="user", parts=[types.Part(text=prompt)])
+        content = types.Content(role="user", parts=parts)
 
         final_text: Optional[str] = None
         async for event in runner.run_async(

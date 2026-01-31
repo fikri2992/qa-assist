@@ -83,8 +83,8 @@ Legend: [x] done · [~] partial/stub · [ ] not started
 ## 08 — AI Orchestration (`plan/08-ai-orchestration.md`)
 - [x] ADK Python multi-agent pipeline. (ai/adk_orchestrator.py)
 - [~] Per-chunk analysis workflow. (stub only)
-- [ ] Video analysis.
-- [ ] Repro planner / synthesizer.
+- [~] Video analysis. (ADK multimodal prompt)
+- [~] Repro planner / synthesizer. (ADK agents)
 - [ ] Playwright generator + verifier. (deferred)
 - [~] Script export. (Playwright stub)
 
