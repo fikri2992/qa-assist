@@ -13,7 +13,7 @@ chrome.storage.local.get(["qa_api_base", "qa_recording", "qa_status"], (state) =
   }
 });
 
-loadRecentSessions();
+syncSessions().finally(loadRecentSessions);
 
 function updateStatus(text) {
   statusEl.textContent = text;
@@ -30,27 +30,49 @@ startBtn.addEventListener("click", () => {
   chrome.storage.local.set({ qa_api_base: apiBase });
   chrome.runtime.sendMessage({ type: "START", apiBase }, () => {
     updateStatus("Recording");
-    loadRecentSessions();
+    syncSessions().finally(loadRecentSessions);
   });
 });
 
 stopBtn.addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "STOP" }, () => {
     updateStatus("Stopped");
-    loadRecentSessions();
+    syncSessions().finally(loadRecentSessions);
   });
 });
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "STATUS") {
     updateStatus(message.value);
-    loadRecentSessions();
+    syncSessions().finally(loadRecentSessions);
   }
 });
 
 function loadRecentSessions() {
   chrome.storage.local.get(["qa_sessions"], (state) => {
     renderSessions(state.qa_sessions || []);
+  });
+}
+
+async function syncSessions() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(["qa_device_id", "qa_api_base"], async (state) => {
+      const deviceId = state.qa_device_id;
+      const apiBase = state.qa_api_base || "http://localhost:4000/api";
+      if (!deviceId) {
+        resolve();
+        return;
+      }
+      try {
+        const res = await fetch(`${apiBase}/sessions?device_id=${deviceId}`);
+        if (!res.ok) throw new Error(`Failed: ${res.status}`);
+        const sessions = await res.json();
+        chrome.storage.local.set({ qa_sessions: sessions });
+      } catch {
+        // ignore network failures
+      }
+      resolve();
+    });
   });
 }
 
