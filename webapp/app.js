@@ -13,6 +13,9 @@ const annotationOverlay = document.getElementById("annotationOverlay");
 const logPane = document.getElementById("logPane");
 const eventPane = document.getElementById("eventPane");
 const analysisPane = document.getElementById("analysisPane");
+const analysisSummary = document.getElementById("analysisSummary");
+const analysisReport = document.getElementById("analysisReport");
+const analysisStatus = document.getElementById("analysisStatus");
 const annotationList = document.getElementById("annotationList");
 const markerList = document.getElementById("markerList");
 const annotationCount = document.getElementById("annotationCount");
@@ -383,7 +386,21 @@ function renderArtifacts(artifacts, apiBase) {
 }
 
 function renderAnalysis(analysis) {
-  analysisPane.textContent = JSON.stringify(analysis, null, 2);
+  if (!analysis || typeof analysis !== "object") {
+    analysisSummary.textContent = "No analysis available yet.";
+    analysisReport.textContent = "";
+    analysisStatus.textContent = "pending";
+    return;
+  }
+
+  analysisStatus.textContent = analysis.status || "pending";
+  analysisSummary.textContent = analysis.summary || "No analysis available yet.";
+
+  if (analysis.final_report) {
+    analysisReport.textContent = JSON.stringify(analysis.final_report, null, 2);
+  } else {
+    analysisReport.textContent = "";
+  }
 }
 
 function renderChatIntro() {

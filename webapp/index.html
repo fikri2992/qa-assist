@@ -97,9 +97,12 @@
           <div class="panel analysis">
             <div class="panel-header">
               <h3>Analysis</h3>
-              <span class="pill">per chunk</span>
+              <span id="analysisStatus" class="pill">pending</span>
             </div>
-            <pre id="analysisPane"></pre>
+            <div id="analysisPane" class="analysis-pane">
+              <div id="analysisSummary" class="analysis-summary"></div>
+              <pre id="analysisReport"></pre>
+            </div>
           </div>
 
           <div class="panel chat">

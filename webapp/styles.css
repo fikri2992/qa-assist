@@ -407,6 +407,17 @@ video {
   color: #cbd5f5;
 }
 
+.analysis-pane {
+  display: grid;
+  gap: 12px;
+}
+
+.analysis-summary {
+  font-size: 13px;
+  color: #e2e8f0;
+  font-family: "Work Sans", sans-serif;
+}
+
 .event-list {
   display: grid;
   gap: 10px;
