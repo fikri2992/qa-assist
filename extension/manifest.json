@@ -1,0 +1,33 @@
+﻿{
+  "manifest_version": 3,
+  "name": "QA Assist",
+  "version": "0.1.0",
+  "description": "Record active-tab sessions and send QA artifacts.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "activeTab",
+    "tabCapture",
+    "debugger",
+    "storage",
+    "scripting",
+    "tabs",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "http://localhost:4000/*",
+    "http://127.0.0.1:4000/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+﻿<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>QA Assist</title>
+  </head>
+  <body>
+    <div class="card">
+      <h1>QA Assist</h1>
+      <label>
+        API URL
+        <input id="apiBase" type="text" placeholder="http://localhost:4000/api" />
+      </label>
+      <div class="row">
+        <button id="startBtn">Start</button>
+        <button id="stopBtn" class="secondary">Stop</button>
+      </div>
+      <div id="status" class="status">Idle</div>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>

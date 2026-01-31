@@ -1,0 +1,58 @@
+﻿body {
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  margin: 0;
+  padding: 12px;
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 240px;
+}
+
+h1 {
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+input {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #334155;
+  background: #111827;
+  color: #f8fafc;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  border: none;
+  background: #3b82f6;
+  color: white;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: #475569;
+}
+
+.status {
+  font-size: 12px;
+  opacity: 0.8;
+}
