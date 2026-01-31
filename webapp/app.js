@@ -28,6 +28,9 @@ const chatSend = document.getElementById("chatSend");
 const chatStop = document.getElementById("chatStop");
 const chatMode = document.getElementById("chatMode");
 const chatModel = document.getElementById("chatModel");
+const chatModeToggle = document.getElementById("chatModeToggle");
+const chatModelLabel = document.getElementById("chatModelLabel");
+const chatAdd = document.getElementById("chatAdd");
 
 const storedApiBase = localStorage.getItem("qa_api_base") || "http://localhost:4000/api";
 const storedDeviceId = localStorage.getItem("qa_device_id") || "";
@@ -503,7 +506,7 @@ function addChatMessage(role, text) {
 function setChatBusy(isBusy) {
   chatSend.disabled = isBusy;
   chatStop.disabled = !isBusy;
-  chatSend.textContent = isBusy ? "..." : "Send";
+  chatSend.textContent = isBusy ? "…" : "➜";
 }
 
 async function sendChatMessage() {
@@ -576,4 +579,27 @@ chatStop.addEventListener("click", () => {
     chatAbort.abort();
   }
 });
+chatModeToggle.addEventListener("click", () => {
+  const options = Array.from(chatMode.options);
+  const currentIndex = options.findIndex((option) => option.value === chatMode.value);
+  const next = options[(currentIndex + 1) % options.length];
+  chatMode.value = next.value;
+});
+chatModelLabel.addEventListener("click", () => {
+  const options = Array.from(chatModel.options);
+  const currentIndex = options.findIndex((option) => option.value === chatModel.value);
+  const next = options[(currentIndex + 1) % options.length];
+  chatModel.value = next.value;
+  updateChatModelLabel();
+});
+chatAdd.addEventListener("click", () => {
+  chatInput.focus();
+});
+
+function updateChatModelLabel() {
+  const label = chatModel.options[chatModel.selectedIndex]?.textContent || "Gemini 3";
+  chatModelLabel.textContent = label;
+}
+
+updateChatModelLabel();
 setChatBusy(false);

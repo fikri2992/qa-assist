@@ -114,9 +114,35 @@
           </div>
 
           <div class="panel chat">
-            <div class="panel-header">
-              <h3>Chat</h3>
-              <div class="chat-selects">
+            <div class="chat-shell">
+              <div class="chat-header">
+                <div class="chat-app">
+                  <span class="chat-dot">◆</span>
+                  <div>
+                    <div class="chat-app-title">Tutorial Node.js</div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="chatList" class="chat-list"></div>
+
+              <div class="chat-input">
+                <input id="chatInput" type="text" placeholder="Do anything with AI..." />
+              </div>
+
+              <div class="chat-footer">
+                <div class="chat-tools">
+                  <button id="chatAdd" class="chat-icon-btn" type="button">+</button>
+                  <button id="chatModeToggle" class="chat-icon-btn" type="button">≡</button>
+                </div>
+                <div class="chat-actions">
+                  <span id="chatModelLabel" class="chat-model">Gemini 3</span>
+                  <button id="chatStop" class="chat-stop" type="button">Stop</button>
+                  <button id="chatSend" class="chat-send" type="button">➜</button>
+                </div>
+              </div>
+
+              <div class="chat-hidden">
                 <select id="chatMode">
                   <option value="investigate">Investigate</option>
                   <option value="summarize">Summarize</option>
@@ -128,12 +154,6 @@
                   <option value="gemini-3-pro-preview">Gemini 3 Pro</option>
                 </select>
               </div>
-            </div>
-            <div id="chatList" class="chat-list"></div>
-            <div class="chat-controls">
-              <input id="chatInput" type="text" placeholder="Ask about this session..." />
-              <button id="chatSend">Send</button>
-              <button id="chatStop" class="ghost">Stop</button>
             </div>
           </div>
 
