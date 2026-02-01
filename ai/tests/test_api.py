@@ -15,7 +15,11 @@ client = TestClient(app)
 def test_health() -> None:
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "adk_enabled" in data
+    assert "adk_text_model" in data
+    assert "adk_video_model" in data
 
 
 def test_analyze_stub() -> None:

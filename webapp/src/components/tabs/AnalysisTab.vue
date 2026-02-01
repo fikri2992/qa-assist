@@ -56,6 +56,8 @@ const autonomyEntries = computed(() => {
   return entries;
 });
 
+const showAutonomyEmpty = computed(() => status.value === "done" && autonomyEntries.value.length === 0);
+
 const rawReport = computed(() => {
   if (!analysis.value?.final_report) return "";
   return JSON.stringify(analysis.value.final_report, null, 2);
@@ -149,6 +151,9 @@ function getSeverity(severity) {
         </Card>
       </div>
     </div>
+    <Message v-else-if="showAutonomyEmpty" severity="info" :closable="false">
+      Agent timeline is empty. Enable ADK (set `GOOGLE_API_KEY`) and re-run a session to populate it.
+    </Message>
   </div>
 </template>
 
