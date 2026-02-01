@@ -2,6 +2,7 @@ defmodule QaAssist.Artifacts do
   import Ecto.Query, only: [from: 2]
 
   alias QaAssist.Storage
+  alias QaAssist.Recording.Artifact
   alias QaAssist.Recording.Event
   alias QaAssist.Recording.Session
   alias QaAssist.Repo
@@ -12,30 +13,23 @@ defmodule QaAssist.Artifacts do
         []
 
       _session ->
-        base = [
-          %{
-            id: "playwright-#{session_id}",
-            name: "Playwright repro script",
-            kind: "playwright",
-            format: "js",
-            description: "Generated from interaction events"
-          }
-        ]
+        stored =
+          from(a in Artifact,
+            where: a.session_id == ^session_id,
+            order_by: [desc: a.inserted_at]
+          )
+          |> Repo.all()
+          |> Enum.map(&artifact_payload/1)
 
-        if session_json_available?(session_id) do
-          [
-            %{
-              id: "session-json-#{session_id}",
-              name: "Session events",
-              kind: "session-json",
-              format: "json",
-              description: "Captured console, network, and interaction events"
-            }
-            | base
-          ]
-        else
-          base
-        end
+        playwright = %{
+          id: "playwright-#{session_id}",
+          name: "Playwright repro script",
+          kind: "playwright",
+          format: "js",
+          description: "Generated from interaction events"
+        }
+
+        [playwright | stored]
     end
   end
 
@@ -62,47 +56,10 @@ defmodule QaAssist.Artifacts do
     end
   end
 
-  def get_artifact("session-json-" <> session_id) do
-    case Repo.get(Session, session_id) do
-      nil ->
-        {:error, :not_found}
-
-      _session ->
-        if Storage.backend_module() == QaAssist.Storage.Gcs do
-          gcs_uri = session_json_uri(session_id)
-          case Storage.media_url(gcs_uri) do
-            nil ->
-              {:error, :not_found}
-
-            url ->
-              case Req.get(url) do
-                {:ok, %{status: 200, body: body}} ->
-                  {:ok,
-                   %{
-                     filename: "session-#{session_id}.json",
-                     content_type: "application/json",
-                     content: body
-                   }}
-
-                _ ->
-                  {:error, :not_found}
-              end
-          end
-        else
-          path = session_json_path(session_id)
-          case File.read(path) do
-            {:ok, content} ->
-              {:ok,
-               %{
-                 filename: "session-#{session_id}.json",
-                 content_type: "application/json",
-                 content: content
-               }}
-
-            _ ->
-              {:error, :not_found}
-          end
-        end
+  def get_artifact(id) do
+    case Repo.get(Artifact, id) do
+      nil -> {:error, :not_found}
+      artifact -> {:ok, artifact}
     end
   end
 
@@ -110,29 +67,49 @@ defmodule QaAssist.Artifacts do
 
   def store_session_json(session_id, payload) do
     content = Jason.encode!(payload, pretty: true)
+    byte_size = byte_size(content)
 
-    if Storage.backend_module() == QaAssist.Storage.Gcs do
-      object = session_json_object(session_id)
-      upload = QaAssist.Storage.Gcs.prepare_object_upload(object, "application/json")
+    upload =
+      if Storage.backend_module() == QaAssist.Storage.Gcs do
+        object = session_json_object(session_id)
+        upload = QaAssist.Storage.Gcs.prepare_object_upload(object, "application/json")
 
-      case Req.put(upload.upload_url, body: content, headers: Map.to_list(upload.upload_headers || %{})) do
-        {:ok, %{status: status}} when status in [200, 201] ->
-          {:ok, %{id: "session-json-#{session_id}", gcs_uri: upload.gcs_uri}}
+        case Req.put(upload.upload_url, body: content, headers: Map.to_list(upload.upload_headers || %{})) do
+          {:ok, %{status: status}} when status in [200, 201] ->
+            {:ok, upload.gcs_uri}
 
-        {:ok, %{status: status, body: body}} ->
-          {:error, "upload failed (status #{status}): #{body}"}
+          {:ok, %{status: status, body: body}} ->
+            {:error, "upload failed (status #{status}): #{body}"}
 
-        {:error, reason} ->
-          {:error, "upload failed: #{inspect(reason)}"}
+          {:error, reason} ->
+            {:error, "upload failed: #{inspect(reason)}"}
+        end
+      else
+        path = session_json_path(session_id)
+        File.mkdir_p!(Path.dirname(path))
+
+        case File.write(path, content) do
+          :ok -> {:ok, "/storage/artifacts/session-#{session_id}.json"}
+          {:error, reason} -> {:error, "file write failed: #{inspect(reason)}"}
+        end
       end
-    else
-      path = session_json_path(session_id)
-      File.mkdir_p!(Path.dirname(path))
 
-      case File.write(path, content) do
-        :ok -> {:ok, %{id: "session-json-#{session_id}", path: path}}
-        {:error, reason} -> {:error, "file write failed: #{inspect(reason)}"}
-      end
+    case upload do
+      {:ok, gcs_uri} ->
+        upsert_artifact(%{
+          session_id: session_id,
+          kind: "session-json",
+          name: "Session events",
+          format: "json",
+          description: "Captured console, network, and interaction events",
+          content_type: "application/json",
+          gcs_uri: gcs_uri,
+          byte_size: byte_size,
+          status: "ready"
+        })
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -213,23 +190,8 @@ defmodule QaAssist.Artifacts do
     |> String.replace("\"", "\\\"")
   end
 
-  defp session_json_available?(session_id) do
-    if Storage.backend_module() == QaAssist.Storage.Gcs do
-      true
-    else
-      File.exists?(session_json_path(session_id))
-    end
-  end
-
   defp session_json_object(session_id) do
     "artifacts/session-#{session_id}.json"
-  end
-
-  defp session_json_uri(session_id) do
-    config = Application.get_env(:qa_assist, :storage, [])
-    gcs = Keyword.get(config, :gcs, [])
-    bucket = Keyword.get(gcs, :bucket)
-    "gs://#{bucket}/#{session_json_object(session_id)}"
   end
 
   defp session_json_path(session_id) do
@@ -239,5 +201,33 @@ defmodule QaAssist.Artifacts do
       |> Path.join(["static", "storage", "artifacts"])
 
     Path.join(base_dir, "session-#{session_id}.json")
+  end
+
+  defp upsert_artifact(attrs) do
+    changeset = Artifact.changeset(%Artifact{}, attrs)
+
+    Repo.insert(changeset,
+      on_conflict: {:replace, [:name, :format, :description, :content_type, :gcs_uri, :byte_size, :status, :metadata, :updated_at]},
+      conflict_target: [:session_id, :kind]
+    )
+    |> case do
+      {:ok, artifact} -> {:ok, artifact_payload(artifact)}
+      {:error, changeset} -> {:error, changeset}
+    end
+  end
+
+  defp artifact_payload(%Artifact{} = artifact) do
+    %{
+      id: artifact.id,
+      name: artifact.name,
+      kind: artifact.kind,
+      format: artifact.format,
+      description: artifact.description,
+      content_type: artifact.content_type,
+      gcs_uri: artifact.gcs_uri,
+      byte_size: artifact.byte_size,
+      status: artifact.status,
+      inserted_at: artifact.inserted_at
+    }
   end
 end

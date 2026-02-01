@@ -2,6 +2,7 @@ defmodule QaAssistWeb.ArtifactController do
   use QaAssistWeb, :controller
 
   alias QaAssist.Artifacts
+  alias QaAssist.Storage
   alias QaAssistWeb.ControllerHelpers
 
   def index(conn, %{"id" => session_id}) do
@@ -23,7 +24,25 @@ defmodule QaAssistWeb.ArtifactController do
 
     case session_id do
       nil ->
-        ControllerHelpers.send_error(conn, 404, "artifact not found")
+        case Artifacts.get_artifact(artifact_id) do
+          {:ok, artifact} ->
+            case ControllerHelpers.require_session(conn, artifact.session_id) do
+              {:ok, _session} ->
+                case Storage.media_url(artifact.gcs_uri) do
+                  nil ->
+                    ControllerHelpers.send_error(conn, 404, "artifact not found")
+
+                  url ->
+                    redirect(conn, external: url)
+                end
+
+              {:error, conn} ->
+                conn
+            end
+
+          {:error, :not_found} ->
+            ControllerHelpers.send_error(conn, 404, "artifact not found")
+        end
 
       _ ->
         case ControllerHelpers.require_session(conn, session_id) do

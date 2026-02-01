@@ -3,6 +3,7 @@ defmodule QaAssist.Recording.Session do
   import Ecto.Changeset
 
   alias QaAssist.Devices.Device
+  alias QaAssist.Recording.Artifact
   alias QaAssist.Recording.Chunk
   alias QaAssist.Recording.Event
 
@@ -19,6 +20,7 @@ defmodule QaAssist.Recording.Session do
     belongs_to :device, Device
     has_many :chunks, Chunk
     has_many :events, Event
+    has_many :artifacts, Artifact
 
     timestamps(type: :utc_datetime_usec)
   end
