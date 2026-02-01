@@ -1,5 +1,5 @@
 ﻿const DEFAULT_API_BASE = "http://localhost:4000/api";
-const CHUNK_DURATION_MS = 10 * 60 * 1000;
+const CHUNK_DURATION_MS = 5 * 1000;
 const IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 
 const state = {
@@ -29,6 +29,10 @@ const state = {
   offscreenStopWaiters: []
 };
 
+let flushInFlight = false;
+
+let stateReady = null;
+
 async function loadState() {
   const stored = await chrome.storage.local.get([
     "qa_device_id",
@@ -51,7 +55,13 @@ async function loadState() {
   state.debug = stored.qa_debug || false;
   state.authToken = stored.qa_auth_token || null;
   state.chunkDurationMs = CHUNK_DURATION_MS;
-  state.receivedChunks = 0;
+}
+
+function ensureStateReady() {
+  if (!stateReady) {
+    stateReady = loadState();
+  }
+  return stateReady;
 }
 
 async function persistState() {
@@ -305,18 +315,27 @@ function waitForOffscreenStop(timeoutMs) {
 }
 
 async function flushEvents({ force = false } = {}) {
+  if (flushInFlight) return;
   if (!state.sessionId || state.eventQueue.length === 0) return;
   if (!force && !state.recording) return;
   const batch = state.eventQueue.splice(0, state.eventQueue.length);
+  let succeeded = false;
+  flushInFlight = true;
   try {
     debugLog("flushing events", { count: batch.length });
     await apiFetch(`/sessions/${state.sessionId}/events`, {
       method: "POST",
       body: JSON.stringify({ events: batch })
     });
+    succeeded = true;
   } catch (err) {
     console.warn("Failed to flush events", err);
     state.eventQueue.unshift(...batch);
+  } finally {
+    flushInFlight = false;
+    if (succeeded && state.eventQueue.length > 0 && (force || state.recording)) {
+      flushEvents({ force }).catch(() => {});
+    }
   }
 }
 
@@ -326,11 +345,13 @@ function enqueueEvent(event) {
     return;
   }
   state.eventQueue.push(event);
+  flushEvents().catch(() => {});
   scheduleFlush();
 }
 
 async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverride) {
-  await loadState();
+  stateReady = loadState();
+  await stateReady;
   if (apiBaseOverride) state.apiBase = apiBaseOverride;
   if (typeof debugOverride === "boolean") state.debug = debugOverride;
   if (Number.isFinite(chunkDurationOverride)) state.chunkDurationMs = chunkDurationOverride;
@@ -395,7 +416,8 @@ async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverr
 }
 
 async function stopRecording() {
-  await loadState();
+  stateReady = loadState();
+  await stateReady;
   if (!state.sessionId) return;
   if (state.stopInProgress) return;
   state.stopInProgress = true;
@@ -449,7 +471,8 @@ async function stopRecording() {
 }
 
 async function pauseRecording(autoPaused = false) {
-  await loadState();
+  stateReady = loadState();
+  await stateReady;
   if (!state.recording) return;
 
   debugLog("pausing recording", { sessionId: state.sessionId, autoPaused });
@@ -501,6 +524,21 @@ function notifyStatus(value) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "INTERACTION") {
+    ensureStateReady().then(() => {
+      state.lastActivity = Date.now();
+      if (state.recording) {
+        enqueueEvent(message.event);
+      }
+    });
+    return;
+  }
+  if (message.type === "ACTIVITY") {
+    ensureStateReady().then(() => {
+      state.lastActivity = Date.now();
+    });
+    return;
+  }
   if (message.type === "OFFSCREEN_READY") {
     state.offscreenReady = true;
     state.offscreenReadyWaiters.forEach((resolve) => resolve());
@@ -553,17 +591,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch((err) => sendResponse({ ok: false, error: err?.message || String(err) }));
     return true;
   }
-  if (message.type === "INTERACTION") {
-    state.lastActivity = Date.now();
-    if (state.recording) {
-      enqueueEvent(message.event);
-    }
-  }
-  if (message.type === "ACTIVITY") {
-    state.lastActivity = Date.now();
-  }
   if (message.type === "CHUNK_DATA") {
-    handleChunkData(message).then(() => sendResponse({ ok: true }));
+    ensureStateReady()
+      .then(() => handleChunkData(message))
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => {
+        console.warn("chunk handling failed", err);
+        sendResponse({ ok: false, error: err?.message || String(err) });
+      });
     return true;
   }
   if (message.type === "ANNOTATION_SUBMIT") {
@@ -730,7 +765,7 @@ async function handleChunkData(message) {
   }
 }
 
-loadState();
+stateReady = loadState();
 
 async function addMarker() {
   const tab = await getActiveTab();

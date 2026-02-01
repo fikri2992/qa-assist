@@ -122,8 +122,50 @@
       background: #1f2937;
       color: #e2e8f0;
     }
+    .qa-assist-debug {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      width: min(360px, 90vw);
+      max-height: 240px;
+      background: rgba(15, 23, 42, 0.95);
+      color: #e2e8f0;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 12px;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      font-size: 11px;
+      z-index: 2147483647;
+      box-shadow: 0 16px 40px rgba(15, 23, 42, 0.45);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+    .qa-assist-debug-header {
+      padding: 8px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(30, 41, 59, 0.9);
+      font-weight: 600;
+    }
+    .qa-assist-debug-header button {
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    #qa-observer-body {
+      padding: 8px 10px;
+      overflow: auto;
+      line-height: 1.4;
+      max-height: 200px;
+    }
   `;
   document.documentElement.appendChild(style);
+
+  let debugPanel = null;
+  let debugBody = null;
 
   function cssPath(el) {
     if (!(el instanceof Element)) return "";
@@ -182,8 +224,8 @@
   }
 
   function appendDebugLine(payload) {
-    const body = document.getElementById("qa-observer-body");
-    if (!body) return;
+    ensureDebugPanel();
+    if (!debugBody) return;
     const line = document.createElement("div");
     const message = typeof payload === "string" ? payload : payload?.message || "debug";
     const source = payload?.source ? `[${payload.source}] ` : "";
@@ -196,8 +238,33 @@
       }
     }
     line.textContent = `${new Date().toISOString()} ${source}${message}${detailText}`;
-    body.appendChild(line);
-    body.scrollTop = body.scrollHeight;
+    debugBody.appendChild(line);
+    debugBody.scrollTop = debugBody.scrollHeight;
+    const lines = debugBody.childNodes.length;
+    if (lines > 200) {
+      debugBody.removeChild(debugBody.firstChild);
+    }
+  }
+
+  function ensureDebugPanel() {
+    if (debugPanel) return;
+    debugPanel = document.createElement("div");
+    debugPanel.className = "qa-assist-debug";
+    debugPanel.innerHTML = `
+      <div class="qa-assist-debug-header">
+        <span>QA Assist Debug</span>
+        <button type="button" aria-label="Close debug panel">✕</button>
+      </div>
+      <div id="qa-observer-body"></div>
+    `;
+    const closeBtn = debugPanel.querySelector("button");
+    closeBtn?.addEventListener("click", () => {
+      debugPanel?.remove();
+      debugPanel = null;
+      debugBody = null;
+    });
+    document.body.appendChild(debugPanel);
+    debugBody = debugPanel.querySelector("#qa-observer-body");
   }
 
   function openAnnotation() {

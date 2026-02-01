@@ -62,22 +62,37 @@ async function startRecording({ streamId, chunkDurationMs, chunkStartIndex, debu
   };
 
   mediaRecorder.ondataavailable = async (event) => {
-    if (!event.data || event.data.size === 0) return;
+    if (!event.data || event.data.size === 0) {
+      logDebug("chunk empty", { size: event.data?.size || 0 });
+      return;
+    }
     const startTs = currentChunkStart;
     const endTs = Date.now();
     currentChunkStart = endTs;
 
-    chrome.runtime.sendMessage({
+    const buffer = await event.data.arrayBuffer();
+    chrome.runtime.sendMessage(
+      {
       type: "CHUNK_DATA",
       sessionId: currentSessionId,
       chunkIndex,
       startTs,
       endTs,
       mimeType: event.data.type,
-      data: event.data,
-      dataType: "blob"
-    });
-    logDebug("chunk captured", { index: chunkIndex, bytes: event.data.size });
+      data: buffer,
+      dataType: "arrayBuffer",
+      byteLength: buffer.byteLength
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          logDebug("chunk send failed", {
+            index: chunkIndex,
+            error: chrome.runtime.lastError.message
+          });
+        }
+      }
+    );
+    logDebug("chunk captured", { index: chunkIndex, bytes: buffer.byteLength });
 
     chunkIndex += 1;
   };
@@ -124,22 +139,38 @@ async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, ses
   }, 200);
 
   mediaRecorder.ondataavailable = async (event) => {
-    if (!event.data || event.data.size === 0) return;
+    if (!event.data || event.data.size === 0) {
+      logDebug("chunk empty", { size: event.data?.size || 0, fake: true });
+      return;
+    }
     const startTs = currentChunkStart;
     const endTs = Date.now();
     currentChunkStart = endTs;
 
-    chrome.runtime.sendMessage({
+    const buffer = await event.data.arrayBuffer();
+    chrome.runtime.sendMessage(
+      {
       type: "CHUNK_DATA",
       sessionId: currentSessionId,
       chunkIndex,
       startTs,
       endTs,
       mimeType: event.data.type,
-      data: event.data,
-      dataType: "blob"
-    });
-    logDebug("chunk captured", { index: chunkIndex, bytes: event.data.size, fake: true });
+      data: buffer,
+      dataType: "arrayBuffer",
+      byteLength: buffer.byteLength
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          logDebug("chunk send failed", {
+            index: chunkIndex,
+            error: chrome.runtime.lastError.message,
+            fake: true
+          });
+        }
+      }
+    );
+    logDebug("chunk captured", { index: chunkIndex, bytes: buffer.byteLength, fake: true });
 
     chunkIndex += 1;
   };

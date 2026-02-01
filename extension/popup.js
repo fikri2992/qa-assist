@@ -15,6 +15,7 @@ const loginPassword = document.getElementById("loginPassword");
 const loginBtn = document.getElementById("loginBtn");
 const loginStatus = document.getElementById("loginStatus");
 const demoBtn = document.getElementById("demoBtn");
+const debugToggle = document.getElementById("debugToggle");
 
 const DEFAULT_API_BASE = "http://localhost:4000/api";
 const DASHBOARD_URL = "http://localhost:5173";
@@ -39,12 +40,13 @@ tabs.forEach(tab => {
 
 // Initialize state
 chrome.storage.local.get(
-  ["qa_recording", "qa_status", "qa_recording_start", "qa_auth_token", "qa_auth_email"],
+  ["qa_recording", "qa_status", "qa_recording_start", "qa_auth_token", "qa_auth_email", "qa_debug"],
   (state) => {
     authToken = state.qa_auth_token || null;
     if (state.qa_auth_email) {
       loginEmail.value = state.qa_auth_email;
     }
+    debugToggle.checked = state.qa_debug === true;
     updateAuthUI();
 
     isRecording = state.qa_recording || false;
@@ -52,6 +54,10 @@ chrome.storage.local.get(
     updateUI(state.qa_status || (isRecording ? "recording" : "idle"));
   }
 );
+
+debugToggle.addEventListener("change", () => {
+  chrome.storage.local.set({ qa_debug: debugToggle.checked });
+});
 
 syncSessions().finally(loadRecentSessions);
 
@@ -167,10 +173,17 @@ mainBtn.addEventListener("click", () => {
     const startTime = new Date().toISOString();
     chrome.storage.local.set({ qa_recording_start: startTime });
     recordingStartTime = new Date(startTime);
-    chrome.runtime.sendMessage({ type: "START", apiBase: DEFAULT_API_BASE }, () => {
+    chrome.runtime.sendMessage(
+      {
+        type: "START",
+        apiBase: DEFAULT_API_BASE,
+        debug: debugToggle.checked
+      },
+      () => {
       isRecording = true;
       updateUI("recording");
-    });
+      }
+    );
   }
 });
 

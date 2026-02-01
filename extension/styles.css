@@ -233,6 +233,18 @@ body {
   margin: 0;
 }
 
+.debug-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.debug-toggle input {
+  accent-color: #f97316;
+}
+
 /* Idle Hint */
 .idle-hint {
   margin-top: 12px;
