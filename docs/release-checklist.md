@@ -13,6 +13,12 @@
 - [ ] Multimodal analysis shown (video + logs + interactions)
 - [ ] Chat demo answers follow-up questions
 
+## Autonomy Timeline Steps
+- [ ] Set `GOOGLE_API_KEY` (or `GEMINI_API_KEY`) and restart `ai/` service
+- [ ] Confirm ADK is enabled (no "ADK disabled" stub responses)
+- [ ] Record a session and wait for analysis to finish
+- [ ] Verify Agent Timeline cards appear in Analysis tab
+
 ## Artifact Locations
 - Demo script: `docs/demo-script.md`
 - Submission template: `docs/submission.md`
