@@ -63,7 +63,6 @@ async function startRecording({ streamId, chunkDurationMs, chunkStartIndex, debu
 
   mediaRecorder.ondataavailable = async (event) => {
     if (!event.data || event.data.size === 0) return;
-    const buffer = await event.data.arrayBuffer();
     const startTs = currentChunkStart;
     const endTs = Date.now();
     currentChunkStart = endTs;
@@ -75,7 +74,8 @@ async function startRecording({ streamId, chunkDurationMs, chunkStartIndex, debu
       startTs,
       endTs,
       mimeType: event.data.type,
-      data: buffer
+      data: event.data,
+      dataType: "blob"
     });
     logDebug("chunk captured", { index: chunkIndex, bytes: event.data.size });
 
@@ -125,7 +125,6 @@ async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, ses
 
   mediaRecorder.ondataavailable = async (event) => {
     if (!event.data || event.data.size === 0) return;
-    const buffer = await event.data.arrayBuffer();
     const startTs = currentChunkStart;
     const endTs = Date.now();
     currentChunkStart = endTs;
@@ -137,7 +136,8 @@ async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, ses
       startTs,
       endTs,
       mimeType: event.data.type,
-      data: buffer
+      data: event.data,
+      dataType: "blob"
     });
     logDebug("chunk captured", { index: chunkIndex, bytes: event.data.size, fake: true });
 

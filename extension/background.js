@@ -677,7 +677,12 @@ async function handleChunkData(message) {
     const storage = chunkResponse.storage;
     const gcsUri = chunkResponse.gcs_uri;
 
-    const blob = new Blob([message.data], { type: message.mimeType || "video/webm" });
+    const chunkBuffer = await normalizeChunkData(message.data);
+    if (!chunkBuffer) {
+      debugLog("chunk payload invalid", { dataType: typeof message.data, keys: Object.keys(message.data || {}) });
+      throw new Error("invalid chunk payload");
+    }
+    const blob = new Blob([chunkBuffer], { type: message.mimeType || "video/webm" });
 
     if (resumable && resumable.start_url) {
       const startHeaders = resumable.start_headers || {};
@@ -883,4 +888,14 @@ function shouldAttachAuth(uploadUrl) {
     const apiOrigin = state.apiBase.replace(/\/api\/?$/, "");
     return uploadUrl.startsWith(apiOrigin);
   }
+}
+
+async function normalizeChunkData(data) {
+  if (!data) return null;
+  if (data instanceof ArrayBuffer) return data;
+  if (data instanceof Blob) return await data.arrayBuffer();
+  if (ArrayBuffer.isView(data)) return data.buffer;
+  if (Array.isArray(data)) return new Uint8Array(data).buffer;
+  if (data?.data && Array.isArray(data.data)) return new Uint8Array(data.data).buffer;
+  return null;
 }
