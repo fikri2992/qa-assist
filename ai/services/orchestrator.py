@@ -216,11 +216,13 @@ class Orchestrator:
         events: List[Dict[str, Any]],
         message: str,
         mode: str,
-        model: str
+        model: str,
+        resources: List[Dict[str, Any]] | None = None,
+        images: List[Dict[str, Any]] | None = None
     ) -> Dict[str, Any]:
         if self.adk:
-            return self.adk.chat(session, analysis, events, message, mode, model)
-        return self._stub_chat(session, analysis, events, message, mode, model)
+            return self.adk.chat(session, analysis, events, message, mode, model, resources, images)
+        return self._stub_chat(session, analysis, events, message, mode, model, resources, images)
 
     def _stub_chat(
         self,
@@ -229,7 +231,9 @@ class Orchestrator:
         _events: List[Dict[str, Any]],
         message: str,
         mode: str,
-        model: str
+        model: str,
+        _resources: List[Dict[str, Any]] | None = None,
+        _images: List[Dict[str, Any]] | None = None
     ) -> Dict[str, Any]:
         summary = analysis.get("summary") if isinstance(analysis, dict) else None
         response = "ADK is disabled. "

@@ -49,8 +49,8 @@ class AdkOrchestrator:
         self.session_service = InMemorySessionService()
         self.checkpoints = CheckpointStore.from_env()
 
-        self.text_model = os.getenv("ADK_TEXT_MODEL", "gemini-2.0-flash")
-        self.video_model = os.getenv("ADK_VIDEO_MODEL", "gemini-2.0-flash")
+        self.text_model = os.getenv("ADK_TEXT_MODEL", "gemini-3-flash")
+        self.video_model = os.getenv("ADK_VIDEO_MODEL", "gemini-3-pro-preview")
 
         # Use agents from ai/agents/analysis/
         self.log_agent = log_analyst
@@ -71,9 +71,11 @@ class AdkOrchestrator:
         events: List[Dict[str, Any]],
         message: str,
         mode: str,
-        model: str
+        model: str,
+        resources: Optional[List[Dict[str, Any]]] = None,
+        images: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
-        return self._run_sync(self._chat_async(session, analysis, events, message, mode, model))
+        return self._run_sync(self._chat_async(session, analysis, events, message, mode, model, resources, images))
 
     async def analyze_chunk_async(
         self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]
@@ -92,9 +94,11 @@ class AdkOrchestrator:
         events: List[Dict[str, Any]],
         message: str,
         mode: str,
-        model: str
+        model: str,
+        resources: Optional[List[Dict[str, Any]]] = None,
+        images: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
-        return await self._chat_async(session, analysis, events, message, mode, model)
+        return await self._chat_async(session, analysis, events, message, mode, model, resources, images)
 
     async def _analyze_chunk_async(
         self, session: Dict[str, Any], chunk: Dict[str, Any], events: List[Dict[str, Any]]
@@ -211,7 +215,9 @@ class AdkOrchestrator:
         events: List[Dict[str, Any]],
         message: str,
         mode: str,
-        model: str
+        model: str,
+        resources: Optional[List[Dict[str, Any]]] = None,
+        images: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         session_id = session.get("id") if isinstance(session, dict) else None
         checkpoint = self.checkpoints.load(session_id) if session_id else {}
@@ -223,6 +229,8 @@ class AdkOrchestrator:
             "analysis": analysis,
             "events": self._trim_events(events),
             "checkpoint": self._checkpoint_context(checkpoint),
+            "resources": resources or [],
+            "images": images or [],
         }
         # Use chat agent factory from ai/agents/chat/
         agent = create_qa_chat_agent(self._pick_model(model))

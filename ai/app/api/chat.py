@@ -18,4 +18,6 @@ def chat(payload: ChatRequest, orchestrator: Orchestrator = Depends(get_orchestr
         payload.message,
         payload.mode,
         payload.model,
+        payload.resources,
+        payload.images,
     )

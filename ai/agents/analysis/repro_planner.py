@@ -33,7 +33,7 @@ Guidelines:
 
 repro_planner = LlmAgent(
     name="repro_planner",
-    model=os.getenv("ADK_TEXT_MODEL", "gemini-2.0-flash"),
+    model=os.getenv("ADK_TEXT_MODEL", "gemini-3-flash"),
     description="Generates clear reproduction steps from interaction events and tester annotations",
     instruction=REPRO_PLANNER_INSTRUCTION,
 )

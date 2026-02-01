@@ -118,7 +118,7 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] Polish (idle resume, annotations, chat, badges). (issue severity badges + summary added)
 
 ## 10 - Hackathon Compliance (`plan/10-hackathon-compliance.md`)
-- [~] Gemini 3 API usage. (env examples are Gemini 3; code defaults are Gemini 2.x)
+- [x] Gemini 3 API usage. (defaults aligned with Gemini 3)
 - [~] Submission artifacts (demo video, public link, writeup). (draft docs in docs/ + release checklist)
 - [x] Marathon agent requirements (autonomy timeline in UI, checkpoints persisted).
 - [~] Autonomy timeline populated by real agent runs (ADK enabled).

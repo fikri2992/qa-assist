@@ -40,7 +40,7 @@ def create_qa_chat_agent(model: str | None = None) -> LlmAgent:
     """
     return LlmAgent(
         name="qa_chat",
-        model=model or os.getenv("ADK_TEXT_MODEL", "gemini-2.0-flash"),
+        model=model or os.getenv("ADK_TEXT_MODEL", "gemini-3-flash"),
         description="Conversational QA assistant for investigating and triaging issues",
         instruction=QA_CHAT_INSTRUCTION,
     )

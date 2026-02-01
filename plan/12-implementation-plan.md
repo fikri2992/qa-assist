@@ -88,6 +88,6 @@ P0 = must fix for correctness/demo, P1 = completeness, P2 = quality/nice-to-have
 - [x] P1-7 Status mapping
 - [x] P1-8 Tailwind build inputs
 - [ ] P1-9 CHECKLIST alignment
-- [ ] P2-10 Gemini defaults
-- [ ] P2-11 Assistant resources wiring
+- [x] P2-10 Gemini defaults
+- [x] P2-11 Assistant resources wiring
 - [ ] P2-12 Playwright verifier (optional)

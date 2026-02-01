@@ -18,7 +18,9 @@ defmodule QaAssistWeb.ChatController do
           analysis: analysis,
           message: Map.get(params, "message", ""),
           mode: Map.get(params, "mode", "investigate"),
-          model: Map.get(params, "model", "default")
+          model: Map.get(params, "model", "default"),
+          resources: Map.get(params, "resources", []),
+          images: Map.get(params, "images", [])
         }
 
         case AI.chat(payload) do

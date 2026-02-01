@@ -21,7 +21,7 @@ export const useChatStore = defineStore("chat", () => {
     mode.value = newMode;
   }
 
-  async function sendMessage(text) {
+  async function sendMessage(text, resources = [], images = []) {
     if (!text.trim()) return;
 
     const sessionsStore = useSessionsStore();
@@ -43,7 +43,13 @@ export const useChatStore = defineStore("chat", () => {
             "Content-Type": "application/json",
             ...(sessionsStore.authToken ? { Authorization: `Bearer ${sessionsStore.authToken}` } : {}),
           },
-          body: JSON.stringify({ message: text, mode: mode.value, model: model.value }),
+          body: JSON.stringify({
+            message: text,
+            mode: mode.value,
+            model: model.value,
+            resources,
+            images,
+          }),
           signal: abortController.signal,
         }
       );

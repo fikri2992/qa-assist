@@ -53,17 +53,33 @@ const models = [
 
 const currentModel = computed(() => models.find(m => m.value === model.value) || models[0]);
 
-// Available resources to mention (mock data for testing)
+const errorCount = computed(() => {
+  return logs.value.filter((event) => {
+    if (event.type === "console") {
+      const level = event.payload?.level;
+      return level === "error" || level === "assert";
+    }
+    if (event.type === "network") {
+      const status = Number(event.payload?.status);
+      return Number.isFinite(status) && status >= 400;
+    }
+    return false;
+  }).length;
+});
+
+// Available resources to mention
 const availableResources = computed(() => {
+  const analysisCount = analysis.value ? 1 : 0;
+  const environmentCount = currentSession.value?.metadata ? 1 : 0;
   return [
-    { id: "logs", label: "Logs", icon: "pi-list", count: 24, type: "logs" },
-    { id: "events", label: "Interactions", icon: "pi-mouse", count: 18, type: "events" },
-    { id: "annotations", label: "Annotations", icon: "pi-bookmark", count: 5, type: "annotations" },
-    { id: "markers", label: "Markers", icon: "pi-flag", count: 3, type: "markers" },
-    { id: "analysis", label: "Analysis", icon: "pi-chart-bar", count: 1, type: "analysis" },
-    { id: "artifacts", label: "Artifacts", icon: "pi-download", count: 2, type: "artifacts" },
-    { id: "environment", label: "Environment", icon: "pi-desktop", count: 1, type: "environment" },
-    { id: "errors", label: "Errors", icon: "pi-exclamation-triangle", count: 7, type: "errors" },
+    { id: "logs", label: "Logs", icon: "pi-list", count: logs.value.length, type: "logs" },
+    { id: "events", label: "Interactions", icon: "pi-mouse", count: interactions.value.length, type: "events" },
+    { id: "annotations", label: "Annotations", icon: "pi-bookmark", count: annotations.value.length, type: "annotations" },
+    { id: "markers", label: "Markers", icon: "pi-flag", count: markers.value.length, type: "markers" },
+    { id: "analysis", label: "Analysis", icon: "pi-chart-bar", count: analysisCount, type: "analysis" },
+    { id: "artifacts", label: "Artifacts", icon: "pi-download", count: artifacts.value.length, type: "artifacts" },
+    { id: "environment", label: "Environment", icon: "pi-desktop", count: environmentCount, type: "environment" },
+    { id: "errors", label: "Errors", icon: "pi-exclamation-triangle", count: errorCount.value, type: "errors" },
   ];
 });
 
@@ -92,8 +108,17 @@ watch(currentSession, () => {
 async function handleSend() {
   if (!inputText.value.trim() || loading.value) return;
   const text = inputText.value;
-  const resources = [...attachedResources.value];
-  const images = [...attachedImages.value];
+  const resources = attachedResources.value.map((resource) => ({
+    id: resource.id,
+    type: resource.type,
+    label: resource.label,
+    count: resource.count,
+  }));
+  const images = attachedImages.value.map((image) => ({
+    name: image.name,
+    type: image.type,
+    size: image.size,
+  }));
   inputText.value = "";
   attachedResources.value = [];
   attachedImages.value = [];
@@ -162,7 +187,9 @@ function handleImageUpload(e) {
         attachedImages.value.push({
           id: Date.now() + Math.random(),
           name: file.name,
-          url: event.target.result
+          url: event.target.result,
+          type: file.type,
+          size: file.size,
         });
       };
       reader.readAsDataURL(file);

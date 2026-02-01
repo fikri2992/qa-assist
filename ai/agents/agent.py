@@ -38,7 +38,7 @@ Return a comprehensive analysis report with:
 
 root_agent = LlmAgent(
     name="qa_assist_orchestrator",
-    model=os.getenv("ADK_TEXT_MODEL", "gemini-2.0-flash"),
+    model=os.getenv("ADK_TEXT_MODEL", "gemini-3-flash"),
     description="Main orchestrator for QA session analysis, coordinating specialized analysis agents",
     instruction=ROOT_AGENT_INSTRUCTION,
     sub_agents=[log_analyst, video_analyst, repro_planner, synthesizer],

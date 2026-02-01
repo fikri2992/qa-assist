@@ -42,7 +42,7 @@ Guidelines:
 
 log_analyst = LlmAgent(
     name="log_analyst",
-    model=os.getenv("ADK_TEXT_MODEL", "gemini-2.0-flash"),
+    model=os.getenv("ADK_TEXT_MODEL", "gemini-3-flash"),
     description="Analyzes console logs and network requests for errors and anomalies",
     instruction=LOG_ANALYST_INSTRUCTION,
 )

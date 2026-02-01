@@ -42,7 +42,7 @@ Guidelines:
 
 video_analyst = LlmAgent(
     name="video_analyst",
-    model=os.getenv("ADK_VIDEO_MODEL", "gemini-2.0-flash"),
+    model=os.getenv("ADK_VIDEO_MODEL", "gemini-3-pro-preview"),
     description="Analyzes recorded video for visual glitches, UI/UX issues, and accessibility problems",
     instruction=VIDEO_ANALYST_INSTRUCTION,
 )

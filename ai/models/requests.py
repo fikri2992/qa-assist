@@ -23,3 +23,5 @@ class ChatRequest(BaseModel):
     message: str
     mode: str = "investigate"
     model: str = "default"
+    resources: List[Dict[str, Any]] = Field(default_factory=list)
+    images: List[Dict[str, Any]] = Field(default_factory=list)

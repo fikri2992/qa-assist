@@ -39,7 +39,7 @@ Guidelines:
 
 synthesizer = LlmAgent(
     name="synthesizer",
-    model=os.getenv("ADK_TEXT_MODEL", "gemini-2.0-flash"),
+    model=os.getenv("ADK_TEXT_MODEL", "gemini-3-flash"),
     description="Consolidates findings from all analysis agents into actionable insights",
     instruction=SYNTHESIZER_INSTRUCTION,
 )
