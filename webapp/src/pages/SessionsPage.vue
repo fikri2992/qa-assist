@@ -150,6 +150,21 @@ function handleLogout() {
   cursor: pointer;
 }
 
+.demo-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: transparent;
+  color: var(--text-secondary);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.demo-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .logout-btn {
   background: var(--bg-elevated);
   color: var(--text-primary);
