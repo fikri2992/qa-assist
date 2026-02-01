@@ -108,7 +108,6 @@ export const useSessionsStore = defineStore("sessions", () => {
     currentChunkIndex.value = 0;
     saveConnection();
   }
-  }
 
   async function loadSessions() {
     if (!apiBase.value || !authToken.value) {

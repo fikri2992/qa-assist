@@ -104,6 +104,10 @@ body {
   background: #0f141b;
 }
 
+.login-panel.hidden {
+  display: none;
+}
+
 .login-panel h3 {
   font-size: 12px;
   font-weight: 600;
@@ -133,6 +137,22 @@ body {
 
 .login-btn:hover {
   background: #ea580c;
+}
+
+.demo-btn {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+  background: transparent;
+  color: #7d8590;
+  font-weight: 500;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.demo-btn:hover {
+  border-color: #f97316;
+  color: #f97316;
 }
 
 .login-status {

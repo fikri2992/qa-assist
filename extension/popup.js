@@ -14,6 +14,7 @@ const loginEmail = document.getElementById("loginEmail");
 const loginPassword = document.getElementById("loginPassword");
 const loginBtn = document.getElementById("loginBtn");
 const loginStatus = document.getElementById("loginStatus");
+const demoBtn = document.getElementById("demoBtn");
 
 const DEFAULT_API_BASE = "http://localhost:4000/api";
 const DASHBOARD_URL = "http://localhost:5173";
@@ -108,7 +109,7 @@ function stopDurationTimer() {
 function updateAuthUI() {
   const loggedIn = !!authToken;
   loginPanel.classList.toggle("hidden", loggedIn);
-  mainBtn.disabled = !loggedIn;
+  recordingControl.classList.toggle("hidden", !loggedIn);
 }
 
 async function handleLogin() {
@@ -142,6 +143,12 @@ async function handleLogin() {
 }
 
 loginBtn.addEventListener("click", handleLogin);
+
+demoBtn.addEventListener("click", () => {
+  loginEmail.value = "demo@qaassist.local";
+  loginPassword.value = "demo123";
+  handleLogin();
+});
 
 mainBtn.addEventListener("click", () => {
   if (!authToken) {
