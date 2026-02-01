@@ -3,6 +3,8 @@ let mediaRecorder = null;
 let streamRef = null;
 let chunkIndex = 0;
 let currentChunkStart = null;
+let chunkTimer = null;
+let chunkDurationMsRef = 0;
 let fakeCanvas = null;
 let fakeCtx = null;
 let fakeTimer = null;
@@ -21,6 +23,7 @@ async function startRecording({ streamId, chunkDurationMs, chunkStartIndex, debu
   currentSessionId = sessionId || null;
   pendingUploads = 0;
   stopRequested = false;
+  chunkDurationMsRef = chunkDurationMs;
 
   streamRef = await navigator.mediaDevices.getUserMedia({
     audio: false,
@@ -36,40 +39,10 @@ async function startRecording({ streamId, chunkDurationMs, chunkStartIndex, debu
     ? "video/webm;codecs=vp9"
     : "video/webm";
 
-  mediaRecorder = new MediaRecorder(streamRef, { mimeType });
   isRecording = true;
   chunkIndex = Number.isFinite(chunkStartIndex) ? chunkStartIndex : 0;
-  currentChunkStart = Date.now();
   logDebug("offscreen recording started");
-  const stoppedSessionId = currentSessionId;
-  mediaRecorder.onstop = () => {
-    chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
-  };
-
-  mediaRecorder.ondataavailable = async (event) => {
-    if (!event.data || event.data.size === 0) {
-      logDebug("chunk empty", { size: event.data?.size || 0 });
-      return;
-    }
-    const startTs = currentChunkStart;
-    const endTs = Date.now();
-    currentChunkStart = endTs;
-
-    const blob = event.data;
-    await uploadChunk({
-      sessionId: currentSessionId,
-      chunkIndex,
-      startTs,
-      endTs,
-      mimeType: blob.type,
-      blob
-    });
-    logDebug("chunk captured", { index: chunkIndex, bytes: blob.size });
-
-    chunkIndex += 1;
-  };
-
-  mediaRecorder.start(chunkDurationMs);
+  startChunkRecorder(mimeType, { fake: false });
 }
 
 async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, sessionId }) {
@@ -78,6 +51,7 @@ async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, ses
   currentSessionId = sessionId || null;
   pendingUploads = 0;
   stopRequested = false;
+  chunkDurationMsRef = chunkDurationMs;
 
   fakeCanvas = document.createElement("canvas");
   fakeCanvas.width = 1280;
@@ -91,15 +65,9 @@ async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, ses
     ? "video/webm;codecs=vp9"
     : "video/webm";
 
-  mediaRecorder = new MediaRecorder(streamRef, { mimeType });
   isRecording = true;
   chunkIndex = Number.isFinite(chunkStartIndex) ? chunkStartIndex : 0;
-  currentChunkStart = Date.now();
   logDebug("fake recording started");
-  const stoppedSessionId = currentSessionId;
-  mediaRecorder.onstop = () => {
-    chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
-  };
 
   fakeTimer = setInterval(() => {
     if (!fakeCtx) return;
@@ -112,31 +80,7 @@ async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, ses
     fakeCtx.fillText(new Date().toISOString(), 40, 130);
   }, 200);
 
-  mediaRecorder.ondataavailable = async (event) => {
-    if (!event.data || event.data.size === 0) {
-      logDebug("chunk empty", { size: event.data?.size || 0, fake: true });
-      return;
-    }
-    const startTs = currentChunkStart;
-    const endTs = Date.now();
-    currentChunkStart = endTs;
-
-    const blob = event.data;
-    await uploadChunk({
-      sessionId: currentSessionId,
-      chunkIndex,
-      startTs,
-      endTs,
-      mimeType: blob.type,
-      blob,
-      fake: true
-    });
-    logDebug("chunk captured", { index: chunkIndex, bytes: blob.size, fake: true });
-
-    chunkIndex += 1;
-  };
-
-  mediaRecorder.start(chunkDurationMs);
+  startChunkRecorder(mimeType, { fake: true });
 }
 
 function stopRecording() {
@@ -146,10 +90,12 @@ function stopRecording() {
   logDebug("offscreen recording stopped");
   const stoppedSessionId = currentSessionId;
 
+  if (chunkTimer) {
+    clearTimeout(chunkTimer);
+    chunkTimer = null;
+  }
+
   if (mediaRecorder && mediaRecorder.state !== "inactive") {
-    mediaRecorder.onstop = () => {
-      chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
-    };
     mediaRecorder.stop();
   } else {
     chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
@@ -170,6 +116,58 @@ function stopRecording() {
   mediaRecorder = null;
 
   maybeNotifyUploadsDone();
+}
+
+function startChunkRecorder(mimeType, { fake }) {
+  if (!streamRef) return;
+
+  mediaRecorder = new MediaRecorder(streamRef, { mimeType });
+  const stoppedSessionId = currentSessionId;
+  currentChunkStart = Date.now();
+
+  mediaRecorder.ondataavailable = async (event) => {
+    if (!event.data || event.data.size === 0) {
+      logDebug("chunk empty", { size: event.data?.size || 0, fake });
+      return;
+    }
+    const startTs = currentChunkStart;
+    const endTs = Date.now();
+
+    const blob = event.data;
+    await uploadChunk({
+      sessionId: currentSessionId,
+      chunkIndex,
+      startTs,
+      endTs,
+      mimeType: blob.type,
+      blob,
+      fake
+    });
+    logDebug("chunk captured", { index: chunkIndex, bytes: blob.size, fake });
+
+    chunkIndex += 1;
+  };
+
+  mediaRecorder.onstop = () => {
+    if (chunkTimer) {
+      clearTimeout(chunkTimer);
+      chunkTimer = null;
+    }
+
+    if (stopRequested) {
+      chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
+      return;
+    }
+
+    startChunkRecorder(mimeType, { fake });
+  };
+
+  mediaRecorder.start();
+  chunkTimer = setTimeout(() => {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+    }
+  }, Math.max(1000, chunkDurationMsRef || 0));
 }
 
 function logDebug(message, detail) {
