@@ -3,6 +3,7 @@ import { useAppStore } from "../stores/app";
 import { useSessionsStore } from "../stores/sessions";
 import { storeToRefs } from "pinia";
 import { computed } from "vue";
+import { mapSessionStatus } from "../utils/status";
 
 const appStore = useAppStore();
 const sessionsStore = useSessionsStore();
@@ -20,13 +21,8 @@ const sessionMeta = computed(() => {
   return `Started ${date} · ${currentSession.value.chunks?.length || 0} chunks`;
 });
 
-const statusClass = computed(() => {
-  const status = currentSession.value?.status;
-  if (status === "completed") return "success";
-  if (status === "failed") return "error";
-  if (status === "recording") return "info";
-  return "default";
-});
+const statusInfo = computed(() => mapSessionStatus(currentSession.value?.status));
+const statusClass = computed(() => statusInfo.value.badgeClass || "default");
 
 const themeIcon = computed(() => theme.value === "dark" ? "pi-sun" : "pi-moon");
 </script>
@@ -40,7 +36,7 @@ const themeIcon = computed(() => theme.value === "dark" ? "pi-sun" : "pi-moon");
     <div class="header-actions">
       <span v-if="currentSession" class="status-badge" :class="statusClass">
         <span class="status-dot"></span>
-        {{ currentSession.status }}
+        {{ statusInfo.label }}
       </span>
       <button class="icon-btn" :title="theme === 'dark' ? 'Light mode' : 'Dark mode'" @click="appStore.toggleTheme">
         <i :class="['pi', themeIcon]"></i>
@@ -144,6 +140,15 @@ const themeIcon = computed(() => theme.value === "dark" ? "pi-sun" : "pi-moon");
 .status-badge.info .status-dot {
   background: #3b82f6;
   animation: pulse 2s infinite;
+}
+
+.status-badge.warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.status-badge.warning .status-dot {
+  background: #f59e0b;
 }
 
 @keyframes pulse {

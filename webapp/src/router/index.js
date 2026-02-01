@@ -7,9 +7,14 @@ const routes = [
     component: () => import("../pages/SessionsPage.vue"),
   },
   {
-    path: "/session/:id",
+    path: "/sessions/:id",
     name: "session-detail",
     component: () => import("../pages/SessionDetailPage.vue"),
+  },
+  {
+    path: "/session/:id",
+    name: "session-detail-legacy",
+    redirect: (to) => `/sessions/${to.params.id}`,
   },
 ];
 

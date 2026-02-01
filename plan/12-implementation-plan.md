@@ -83,9 +83,9 @@ P0 = must fix for correctness/demo, P1 = completeness, P2 = quality/nice-to-have
 - [x] P0-3 Event queue gating
 - [ ] P1-4 Popup marker/annotation buttons
 - [x] P1-4a Sidebar logout button
-- [ ] P1-5 Deep-link consistency
-- [ ] P1-6 Annotation overlay in playback
-- [ ] P1-7 Status mapping
+- [x] P1-5 Deep-link consistency
+- [x] P1-6 Annotation overlay in playback
+- [x] P1-7 Status mapping
 - [ ] P1-8 Tailwind build inputs
 - [ ] P1-9 CHECKLIST alignment
 - [ ] P2-10 Gemini defaults

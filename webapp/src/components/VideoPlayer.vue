@@ -48,6 +48,40 @@ const timelinePins = computed(() => {
     .filter((pin) => pin.left >= 0 && pin.left <= 100);
 });
 
+const annotationPins = computed(() => {
+  if (!events.value.length) return [];
+
+  const chunkStart = currentChunk.value?.start_ts
+    ? new Date(currentChunk.value.start_ts).getTime()
+    : null;
+  const chunkEnd = currentChunk.value?.end_ts
+    ? new Date(currentChunk.value.end_ts).getTime()
+    : null;
+
+  return events.value
+    .filter((event) => event.type === "annotation")
+    .filter((event) => {
+      if (!event.ts || chunkStart === null || chunkEnd === null) return true;
+      const ts = new Date(event.ts).getTime();
+      return ts >= chunkStart && ts <= chunkEnd;
+    })
+    .map((event, index) => {
+      const viewport = event.payload?.viewport;
+      const width = viewport?.width;
+      const height = viewport?.height;
+      if (!width || !height) return null;
+      const left = clamp((event.payload?.x || 0) / width * 100, 0, 100);
+      const top = clamp((event.payload?.y || 0) / height * 100, 0, 100);
+      return {
+        id: event.id || `${index}-${event.ts}`,
+        left,
+        top,
+        text: event.payload?.text || "Annotation",
+      };
+    })
+    .filter(Boolean);
+});
+
 function getSessionWindow() {
   const timestamps = [];
   if (currentSession.value?.started_at) timestamps.push(new Date(currentSession.value.started_at).getTime());
@@ -88,6 +122,10 @@ function handleVideoEnded() {
 function selectChunk(index) {
   sessionsStore.setCurrentChunk(index);
 }
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
 </script>
 
 <template>
@@ -101,6 +139,17 @@ function selectChunk(index) {
         class="video-player"
         @ended="handleVideoEnded"
       />
+      <div class="annotation-overlay">
+        <button
+          v-for="pin in annotationPins"
+          :key="pin.id"
+          class="annotation-pin"
+          :style="{ left: `${pin.left}%`, top: `${pin.top}%` }"
+          type="button"
+        >
+          <span class="annotation-tooltip">{{ pin.text }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Timeline -->
@@ -161,6 +210,47 @@ function selectChunk(index) {
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.annotation-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.annotation-pin {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--info);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.annotation-tooltip {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 10px);
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  color: #e2e8f0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 11px;
+  max-width: 200px;
+  white-space: pre-wrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 3;
+}
+
+.annotation-pin:hover .annotation-tooltip {
+  opacity: 1;
 }
 
 .timeline-container {

@@ -96,11 +96,11 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] Logs panel (console + network)
 - [x] Interaction trail (clicks + DOM context)
 - [x] Annotations list tab. (webapp/src/components/tabs/AnnotationsTab.vue)
-- [~] Annotations overlay. (pins + list exist; video overlay missing)
+- [x] Annotations overlay. (video overlay added)
 - [x] Chat UI.
 - [x] Login screen + logout. (webapp/src/pages/SessionsPage.vue + sidebar)
 - [x] Downloadable repro scripts. (Playwright script)
-- [~] Extension deep-link route matches router. (extension uses /sessions/:id; router uses /session/:id)
+- [x] Extension deep-link route matches router. (router supports /sessions/:id + legacy redirect)
 
 ## 08 - AI Orchestration (`plan/08-ai-orchestration.md`)
 - [x] ADK Python multi-agent pipeline. (ai/services/adk_orchestrator.py)

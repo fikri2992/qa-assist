@@ -4,6 +4,7 @@ import { useAppStore } from "../stores/app";
 import { useSessionsStore } from "../stores/sessions";
 import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
+import { mapSessionStatus } from "../utils/status";
 
 const appStore = useAppStore();
 const sessionsStore = useSessionsStore();
@@ -19,6 +20,10 @@ async function handleSelectSession(session) {
 
 function formatSessionId(id) {
   return id?.slice(0, 8) || "";
+}
+
+function getStatusInfo(status) {
+  return mapSessionStatus(status);
 }
 
 function handleLogout() {
@@ -61,7 +66,12 @@ onMounted(() => {
         >
           <i class="pi pi-file"></i>
           <span class="session-id">{{ formatSessionId(session.id) }}</span>
-          <span class="session-status" :class="session.status">{{ session.status }}</span>
+          <span
+            class="session-status"
+            :class="getStatusInfo(session.status).className"
+          >
+            {{ getStatusInfo(session.status).label }}
+          </span>
         </button>
         <div v-if="!sessions.length && !loading" class="empty-sessions">
           <i class="pi pi-inbox"></i>
@@ -258,6 +268,16 @@ onMounted(() => {
 .session-status.recording {
   background: rgba(59, 130, 246, 0.15);
   color: #3b82f6;
+}
+
+.session-status.paused {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.session-status.unknown {
+  background: var(--bg-base);
+  color: var(--text-muted);
 }
 
 .empty-sessions {
