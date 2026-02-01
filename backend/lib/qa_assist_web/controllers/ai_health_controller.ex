@@ -9,7 +9,7 @@ defmodule QaAssistWeb.AiHealthController do
          {:ok, payload} <- AI.health() do
       json(conn, payload)
     else
-      {:error, conn} -> conn
+      {:error, %Plug.Conn{} = conn} -> conn
       {:error, reason} -> ControllerHelpers.send_error(conn, 502, reason)
     end
   end
