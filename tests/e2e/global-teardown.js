@@ -29,6 +29,7 @@ module.exports = async () => {
   const state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
   killTree(state.backendPid);
   killTree(state.aiPid);
+  killTree(state.webappPid);
 
   fs.unlinkSync(STATE_FILE);
 };

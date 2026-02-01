@@ -28,6 +28,19 @@ const API_BASE = (() => {
   return 'http://127.0.0.1:4000/api';
 })();
 
+const WEBAPP_URL = (() => {
+  if (process.env.QA_WEBAPP_URL) return process.env.QA_WEBAPP_URL;
+  if (fs.existsSync(STATE_FILE)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
+      if (data.webappUrl) return data.webappUrl;
+    } catch {
+      // ignore
+    }
+  }
+  return 'http://127.0.0.1:5173';
+})();
+
 function createTestServer() {
   const html = `<!doctype html>
 <html>
@@ -402,6 +415,61 @@ test('records a full session with extension + backend + AI', async () => {
     const jsonText = await downloadRes.text();
     const parsed = JSON.parse(jsonText);
     expect(parsed.events?.length).toBeGreaterThan(0);
+
+    await logStep('opening session in webapp', appPage);
+    const dashboardPage = await context.newPage();
+    await dashboardPage.addInitScript(({ token, email, apiBase }) => {
+      localStorage.setItem('qa_auth_token', token);
+      localStorage.setItem('qa_auth_email', email);
+      localStorage.setItem('qa_api_base', apiBase);
+    }, { token: authToken, email: AUTH_EMAIL, apiBase: API_BASE });
+    await dashboardPage.goto(`${WEBAPP_URL}/sessions/${session.id}`, { waitUntil: 'domcontentloaded' });
+
+    await logStep('opening artifacts tab', appPage);
+    const artifactsTab = dashboardPage.locator('[role="tab"]', { hasText: 'Artifacts' });
+    if (await artifactsTab.count()) {
+      await artifactsTab.first().click();
+    } else {
+      await dashboardPage.getByText('Artifacts', { exact: false }).click();
+    }
+
+    await logStep('clicking Download JSON in webapp', appPage);
+    const downloadLink = dashboardPage.locator('a:has-text("Download JSON"), button:has-text("Download JSON")').first();
+    await downloadLink.waitFor({ state: 'visible', timeout: 15000 });
+    const downloadHref = await downloadLink.getAttribute('href');
+    expect(downloadHref).toBeTruthy();
+
+    const popupPromise = dashboardPage
+      .waitForEvent('popup', { timeout: 5000 })
+      .catch(() => null);
+    await downloadLink.click();
+    const popup = await popupPromise;
+
+    if (popup) {
+      const popupUrl = popup.url();
+      expect(popupUrl).toContain('session-');
+      try {
+        await popup.close();
+      } catch {
+        // ignore if already closed
+      }
+    }
+
+    await logStep('verifying webapp download url', appPage);
+    const resolvedUrl = downloadHref.startsWith('http')
+      ? downloadHref
+      : new URL(downloadHref, WEBAPP_URL).toString();
+    const webDownload = await context.request.get(resolvedUrl, { headers });
+    let webRes = webDownload;
+    if (webDownload.status() === 302) {
+      const location = webDownload.headers()['location'];
+      const baseUrl = API_BASE.replace(/\/api\/?$/, '');
+      const targetUrl = location.startsWith('http') ? location : `${baseUrl}${location}`;
+      webRes = await context.request.get(targetUrl, { headers });
+    }
+    expect(webRes.ok()).toBeTruthy();
+    const webJson = JSON.parse(await webRes.text());
+    expect(webJson.events?.length).toBeGreaterThan(0);
 
     const eventCount = events.length;
     await logStep('sending post-stop interaction', appPage);

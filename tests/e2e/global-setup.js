@@ -5,6 +5,7 @@ const net = require('net');
 
 const ROOT = path.join(__dirname, '..', '..');
 const BACKEND_DIR = path.join(ROOT, 'backend');
+const WEBAPP_DIR = path.join(ROOT, 'webapp');
 const STATE_FILE = path.join(__dirname, '.e2e-state.json');
 const LOG_DIR = path.join(__dirname, '.logs');
 
@@ -104,6 +105,9 @@ module.exports = async () => {
   const aiPort = await resolvePort(
     process.env.QA_AI_PORT ? Number(process.env.QA_AI_PORT) : null
   );
+  const webappPort = await resolvePort(
+    process.env.QA_WEBAPP_PORT ? Number(process.env.QA_WEBAPP_PORT) : null
+  );
 
   const backendEnv = {
     ...process.env,
@@ -127,15 +131,24 @@ module.exports = async () => {
     env: aiEnv,
   });
 
+  const webapp = startProcess('webapp', 'npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', String(webappPort)], {
+    cwd: WEBAPP_DIR,
+    env: process.env,
+  });
+
   await waitForUrl(`http://127.0.0.1:${backendPort}/`);
   await waitForUrl(`http://127.0.0.1:${aiPort}/health`);
+  await waitForUrl(`http://127.0.0.1:${webappPort}/`);
 
   const state = {
     backendPid: backend.pid,
     aiPid: ai.pid,
+    webappPid: webapp.pid,
     backendPort,
     aiPort,
+    webappPort,
     apiBase: `http://127.0.0.1:${backendPort}/api`,
+    webappUrl: `http://127.0.0.1:${webappPort}`,
   };
   fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
 };
