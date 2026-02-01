@@ -21,6 +21,11 @@ function formatSessionId(id) {
   return id?.slice(0, 8) || "";
 }
 
+function handleLogout() {
+  sessionsStore.logout();
+  router.push({ name: "sessions" });
+}
+
 // Auto-load sessions on mount
 onMounted(() => {
   if (isAuthenticated.value) {
@@ -64,6 +69,13 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <div v-if="isAuthenticated" class="sidebar-footer">
+      <button class="logout-btn" @click="handleLogout">
+        <i class="pi pi-sign-out"></i>
+        <span>Logout</span>
+      </button>
+    </div>
   </aside>
 
   <!-- Collapsed Rail -->
@@ -81,6 +93,14 @@ onMounted(() => {
       @click="handleSelectSession(session)"
     >
       {{ formatSessionId(session.id).slice(0, 2) }}
+    </button>
+    <button
+      v-if="isAuthenticated"
+      class="rail-btn rail-logout"
+      title="Logout"
+      @click="handleLogout"
+    >
+      <i class="pi pi-sign-out"></i>
     </button>
   </div>
 </template>
@@ -260,6 +280,32 @@ onMounted(() => {
   font-size: 13px;
 }
 
+.sidebar-footer {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.logout-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.logout-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 /* Sidebar Rail */
 .sidebar-rail {
   background: var(--bg-surface);
@@ -329,5 +375,9 @@ onMounted(() => {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.rail-logout {
+  margin-top: auto;
 }
 </style>
