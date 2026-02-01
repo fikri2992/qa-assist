@@ -33,6 +33,7 @@ defmodule QaAssistWeb.Router do
 
     post "/sessions/:id/events", EventController, :create
     get "/sessions/:id/events", EventController, :index
+    post "/sessions/:id/session-json", SessionJsonController, :create
 
     get "/sessions/:id/analysis", AnalysisController, :show
     post "/sessions/:id/chat", ChatController, :create

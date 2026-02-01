@@ -655,7 +655,7 @@ async function stopRecording() {
     } catch {
       // ignore
     }
-    await downloadSession(sessionId);
+    await uploadSessionJson(sessionId);
     try {
       await stopSession();
     } finally {
@@ -671,7 +671,7 @@ async function stopRecording() {
   }
 }
 
-async function downloadSession(sessionId) {
+async function uploadSessionJson(sessionId) {
   if (!sessionId) return;
   try {
     const meta = state.sessionMeta || {};
@@ -686,14 +686,13 @@ async function downloadSession(sessionId) {
       },
       events: state.localEvents.slice()
     };
-    const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(
-      JSON.stringify(payload, null, 2)
-    )}`;
-    const filename = `qa-session-${sessionId}.json`;
-    await chrome.downloads.download({ url: dataUrl, filename, saveAs: false });
+    await apiFetch(`/sessions/${sessionId}/session-json`, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
   } catch (err) {
-    debugLog("download failed", { error: err?.message || String(err) });
-    notifyError(`Failed to download session file: ${err?.message || String(err)}`);
+    debugLog("session json upload failed", { error: err?.message || String(err) });
+    notifyError(`Failed to upload session file: ${err?.message || String(err)}`);
   } finally {
     state.localEvents = [];
     state.sessionMeta = null;

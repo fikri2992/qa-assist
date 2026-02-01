@@ -34,6 +34,25 @@ defmodule QaAssist.Storage.Gcs do
     }
   end
 
+  def prepare_object_upload(object, content_type) when is_binary(object) do
+    config = gcs_config!()
+    validate_config!(config)
+
+    bucket = config[:bucket]
+    gcs_uri = "gs://#{bucket}/#{object}"
+
+    upload_headers = base_headers(content_type)
+    upload_url = signed_url("PUT", bucket, object, upload_headers, config)
+
+    %{
+      storage: "gcs",
+      gcs_uri: gcs_uri,
+      upload_url: upload_url,
+      upload_method: "PUT",
+      upload_headers: strip_host(upload_headers)
+    }
+  end
+
   def store_upload(%Chunk{} = _chunk, %Plug.Upload{} = _upload) do
     {:error, "direct upload required for gcs storage"}
   end
