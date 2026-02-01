@@ -217,14 +217,32 @@ async function detachDebugger(tabId) {
 
 async function ensureOffscreen() {
   const exists = await chrome.offscreen.hasDocument();
-  if (!exists) {
-    state.offscreenReady = false;
-    await chrome.offscreen.createDocument({
-      url: "offscreen.html",
-      reasons: ["USER_MEDIA"],
-      justification: "Record active tab video"
-    });
+  if (exists) {
+    try {
+      const response = await sendRuntimeMessage({ type: "OFFSCREEN_PING" }, 1000);
+      if (response?.ok) {
+        state.offscreenReady = true;
+        return;
+      }
+    } catch {
+      // Will recreate below.
+    }
+    if (chrome.offscreen?.closeDocument) {
+      try {
+        await chrome.offscreen.closeDocument();
+      } catch {
+        // ignore
+      }
+    }
   }
+
+  state.offscreenReady = false;
+  await chrome.offscreen.createDocument({
+    url: "offscreen.html",
+    reasons: ["USER_MEDIA"],
+    justification: "Record active tab video"
+  });
+
   const ready = await waitForOffscreenReady(2000);
   if (!ready) {
     throw new Error("Offscreen document did not become ready.");

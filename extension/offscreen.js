@@ -376,6 +376,10 @@ function sendChunkToBackground(payload) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === "OFFSCREEN_PING") {
+    sendResponse({ ok: true });
+    return;
+  }
   if (message.type === "OFFSCREEN_START") {
     apiBase = message.apiBase || apiBase;
     authToken = message.authToken || authToken;
