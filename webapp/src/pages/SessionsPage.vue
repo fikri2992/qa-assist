@@ -13,6 +13,12 @@ function handleLogin() {
   sessionsStore.login(email.value, password.value);
 }
 
+function useDemoAccount() {
+  email.value = "demo@qaassist.local";
+  password.value = "demo123";
+  handleLogin();
+}
+
 function handleLogout() {
   sessionsStore.logout();
 }
