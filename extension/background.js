@@ -30,7 +30,8 @@ const state = {
   offscreenStopped: false,
   offscreenStopWaiters: [],
   offscreenUploadsDone: false,
-  offscreenUploadWaiters: []
+  offscreenUploadWaiters: [],
+  currentTabInfo: null
 };
 
 let flushInFlight = false;
@@ -196,10 +197,13 @@ async function attachDebugger(tabId) {
     await chrome.debugger.attach({ tabId }, "1.3");
     await chrome.debugger.sendCommand({ tabId }, "Log.enable");
     await chrome.debugger.sendCommand({ tabId }, "Network.enable");
-    return true;
+    await chrome.debugger.sendCommand({ tabId }, "Console.enable");
+    await chrome.debugger.sendCommand({ tabId }, "Runtime.enable");
+    return { ok: true };
   } catch (err) {
-    console.warn("Debugger attach failed", err);
-    return false;
+    const message = err?.message || String(err);
+    console.warn("Debugger attach failed", message);
+    return { ok: false, error: message };
   }
 }
 
@@ -269,13 +273,8 @@ function scheduleFlush() {
 }
 
 function scheduleIdleCheck() {
-  if (state.idleTimer) return;
-  state.idleTimer = setInterval(() => {
-    if (!state.recording) return;
-    if (Date.now() - state.lastActivity > IDLE_TIMEOUT_MS) {
-      handleAutoPause("Idle timeout");
-    }
-  }, 15000);
+  // Auto-pause disabled: keep recording even when idle.
+  return;
 }
 
 function clearTimers() {
@@ -370,15 +369,100 @@ async function flushEvents({ force = false } = {}) {
   }
 }
 
+async function flushEventsWithRetry(maxAttempts = 3) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    await flushEvents({ force: true });
+    if (state.eventQueue.length === 0) {
+      return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  }
+  return state.eventQueue.length === 0;
+}
+
+async function loadPendingEvents() {
+  const stored = await chrome.storage.local.get(["qa_pending_events"]);
+  return stored.qa_pending_events || {};
+}
+
+async function savePendingEvents(pending) {
+  await chrome.storage.local.set({ qa_pending_events: pending });
+}
+
+async function persistPendingEvents(sessionId, events) {
+  if (!sessionId || !events?.length) return;
+  const pending = await loadPendingEvents();
+  pending[sessionId] = events;
+  await savePendingEvents(pending);
+}
+
+async function flushPendingEvents() {
+  const pending = await loadPendingEvents();
+  const sessionIds = Object.keys(pending);
+  if (sessionIds.length === 0) return;
+  for (const sessionId of sessionIds) {
+    const events = pending[sessionId];
+    if (!events?.length) {
+      delete pending[sessionId];
+      continue;
+    }
+    try {
+      await apiFetch(`/sessions/${sessionId}/events`, {
+        method: "POST",
+        body: JSON.stringify({ events })
+      });
+      delete pending[sessionId];
+    } catch (err) {
+      debugLog("pending events flush failed", { sessionId, error: err?.message || String(err) });
+    }
+  }
+  await savePendingEvents(pending);
+}
+
 function enqueueEvent(event) {
   if (!state.recording) {
     debugLog("event dropped (not recording)", { type: event?.type });
     return;
   }
-  state.localEvents.push(event);
-  state.eventQueue.push(event);
+  const normalized = normalizeEvent(event);
+  state.localEvents.push(normalized);
+  state.eventQueue.push(normalized);
   flushEvents().catch(() => {});
   scheduleFlush();
+}
+
+function normalizeEvent(event) {
+  const ts = event?.ts || new Date().toISOString();
+  const payload = { ...(event?.payload || {}) };
+  const tabInfo = payload.tab || state.currentTabInfo;
+  if (tabInfo) {
+    payload.tab = tabInfo;
+  }
+  if (payload.frameId === undefined && state.currentTabInfo?.frameId !== undefined) {
+    payload.frameId = state.currentTabInfo.frameId;
+  }
+  if (!payload.ts_ms) {
+    payload.ts_ms = new Date(ts).getTime();
+  }
+  return {
+    ...event,
+    ts,
+    payload
+  };
+}
+
+function buildTabInfo(tab, frameId) {
+  if (!tab) return null;
+  const info = {
+    id: tab.id,
+    url: tab.url,
+    title: tab.title,
+    windowId: tab.windowId
+  };
+  if (frameId !== undefined) {
+    info.frameId = frameId;
+  }
+  return info;
 }
 
 async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverride) {
@@ -392,21 +476,28 @@ async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverr
   }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) return;
+  if (!tab) {
+    throw new Error("No active tab found.");
+  }
 
   const env = await getTabEnvironment(tab.id);
+  if (!env) {
+    throw new Error("Content script not available. Reload the page and try again.");
+  }
 
   debugLog("start recording", { tabId: tab.id, url: tab.url });
   await ensureDevice();
+  await flushPendingEvents();
 
   const attached = await attachDebugger(tab.id);
-  if (!attached) {
+  if (!attached.ok) {
     state.recording = false;
     state.status = "idle";
     await persistState();
-    notifyError("Unable to attach debugger. Close other debuggers and try again.");
     notifyStatus("Stopped");
-    return;
+    const detail = attached.error || "debugger_attach_failed";
+    recordState("start_failed", detail);
+    throw new Error(`Unable to attach debugger: ${detail}`);
   }
   debugLog("debugger attached");
 
@@ -443,9 +534,16 @@ async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverr
   state.receivedChunks = 0;
   state.offscreenUploadsDone = false;
   state.currentTabId = tab.id;
+  state.currentTabInfo = buildTabInfo(tab);
   state.lastUrl = tab.url || null;
   state.lastActivity = Date.now();
   await persistState();
+  try {
+    await chrome.storage.local.set({ qa_last_error: "" });
+  } catch {
+    // ignore storage errors
+  }
+  recordState("recording", "started");
 
   chrome.tabs.sendMessage(tab.id, { type: "HIDE_RESUME_PROMPT" });
 
@@ -485,14 +583,18 @@ async function stopRecording() {
     state.status = "ended";
     state.autoPaused = false;
     await persistState();
+    recordState("stopped", "user_stop");
     clearTimers();
 
     if (wasRecording && state.currentTabId) {
       await detachDebugger(state.currentTabId);
     }
 
-    await flushEvents({ force: true });
-    state.eventQueue = [];
+    const flushed = await flushEventsWithRetry(3);
+    if (!flushed && state.eventQueue.length > 0) {
+      await persistPendingEvents(sessionId, state.eventQueue.slice());
+      notifyError("Failed to upload all events. Will retry next time.");
+    }
     try {
       await chrome.storage.local.set({ qa_debug_before_synth: state.receivedChunks });
     } catch {
@@ -529,14 +631,14 @@ async function downloadSession(sessionId) {
       },
       events: state.localEvents.slice()
     };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
+    const dataUrl = `data:application/json;charset=utf-8,${encodeURIComponent(
+      JSON.stringify(payload, null, 2)
+    )}`;
     const filename = `qa-session-${sessionId}.json`;
-    await chrome.downloads.download({ url, filename, saveAs: false });
-    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    await chrome.downloads.download({ url: dataUrl, filename, saveAs: false });
   } catch (err) {
     debugLog("download failed", { error: err?.message || String(err) });
-    notifyError("Failed to download session file.");
+    notifyError(`Failed to download session file: ${err?.message || String(err)}`);
   } finally {
     state.localEvents = [];
     state.sessionMeta = null;
@@ -553,6 +655,7 @@ async function pauseRecording(autoPaused = false) {
   state.status = "paused";
   state.autoPaused = autoPaused;
   await persistState();
+  recordState("paused", autoPaused ? "auto_pause" : "paused");
   clearTimers();
 
   if (state.currentTabId) {
@@ -598,13 +701,37 @@ function notifyStatus(value) {
 
 function notifyError(message) {
   chrome.runtime.sendMessage({ type: "ERROR", message });
+  try {
+    chrome.storage.local.set({ qa_last_error: message || "Recording error." });
+  } catch {
+    // ignore storage errors
+  }
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+function recordState(stateLabel, reason) {
+  try {
+    chrome.storage.local.set({
+      qa_last_state: stateLabel || "",
+      qa_last_state_reason: reason || "",
+      qa_last_state_ts: new Date().toISOString()
+    });
+  } catch {
+    // ignore storage errors
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "INTERACTION") {
     ensureStateReady().then(() => {
       state.lastActivity = Date.now();
       if (state.recording) {
+        const tabInfo = buildTabInfo(sender?.tab, sender?.frameId);
+        if (message.event?.payload) {
+          message.event.payload = { ...message.event.payload, tab: tabInfo || message.event.payload.tab };
+          if (sender?.frameId !== undefined) {
+            message.event.payload.frameId = sender.frameId;
+          }
+        }
         enqueueEvent(message.event);
       }
     });
@@ -639,6 +766,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch((err) => {
         console.error("Start recording failed", err);
         debugLog("start failed", { error: err?.message || String(err) });
+        recordState("start_failed", err?.message || "start failed");
         notifyError(err?.message || "Failed to start recording.");
         sendResponse({ ok: false, error: err?.message || String(err) });
       });
@@ -702,19 +830,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message.type === "ANNOTATION_SUBMIT") {
     if (state.recording) {
+      const tabInfo = buildTabInfo(sender?.tab, sender?.frameId);
       enqueueEvent({
         ts: new Date().toISOString(),
         type: "annotation",
-        payload: message.payload
+        payload: { ...message.payload, tab: tabInfo || message.payload?.tab }
       });
     }
   }
   if (message.type === "MARKER_SUBMIT") {
     if (state.recording) {
+      const tabInfo = buildTabInfo(sender?.tab, sender?.frameId);
       enqueueEvent({
         ts: new Date().toISOString(),
         type: "marker",
-        payload: message.payload
+        payload: { ...message.payload, tab: tabInfo || message.payload?.tab }
       });
     }
   }
@@ -732,13 +862,62 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 chrome.debugger.onEvent.addListener((source, method, params) => {
   if (!state.recording || source.tabId !== state.currentTabId) return;
+  const tabMeta = state.currentTabInfo || { id: source.tabId, url: state.lastUrl };
 
   if (method === "Log.entryAdded") {
     const entry = params.entry || {};
     enqueueEvent({
       ts: new Date(entry.timestamp || Date.now()).toISOString(),
       type: "console",
-      payload: { message: entry.text, level: entry.level }
+      payload: { message: entry.text, level: entry.level, tab: tabMeta }
+    });
+  }
+
+  if (method === "Console.messageAdded") {
+    const msg = params.message || {};
+    enqueueEvent({
+      ts: new Date().toISOString(),
+      type: "console",
+      payload: {
+        message: msg.text,
+        level: msg.level,
+        source: msg.source,
+        url: msg.url,
+        line: msg.line,
+        tab: tabMeta
+      }
+    });
+  }
+
+  if (method === "Runtime.consoleAPICalled") {
+    const args = params.args || [];
+    enqueueEvent({
+      ts: new Date().toISOString(),
+      type: "console",
+      payload: {
+        message: args.map((arg) => arg.value || arg.description || arg.type).join(" "),
+        level: params.type,
+        stackTrace: params.stackTrace,
+        tab: tabMeta
+      }
+    });
+  }
+
+  if (method === "Runtime.exceptionThrown") {
+    const details = params.exceptionDetails || {};
+    enqueueEvent({
+      ts: new Date().toISOString(),
+      type: "console",
+      payload: {
+        message: details.text || "exception",
+        level: "error",
+        url: details.url,
+        line: details.lineNumber,
+        column: details.columnNumber,
+        exception: details.exception?.description,
+        stackTrace: details.stackTrace,
+        tab: tabMeta
+      }
     });
   }
 
@@ -749,17 +928,61 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
       type: "network",
       payload: {
         url: response.url,
+        requestId: params.requestId,
         status: response.status,
-        statusText: response.statusText
+        statusText: response.statusText,
+        mimeType: response.mimeType,
+        headers: response.headers,
+        fromDiskCache: response.fromDiskCache,
+        tab: tabMeta
+      }
+    });
+  }
+
+  if (method === "Network.requestWillBeSent") {
+    const request = params.request || {};
+    enqueueEvent({
+      ts: new Date().toISOString(),
+      type: "network",
+      payload: {
+        requestId: params.requestId,
+        url: request.url,
+        method: request.method,
+        type: "request",
+        headers: request.headers,
+        postData: request.postData,
+        initiator: params.initiator?.type,
+        tab: tabMeta
+      }
+    });
+  }
+
+  if (method === "Network.loadingFailed") {
+    enqueueEvent({
+      ts: new Date().toISOString(),
+      type: "network",
+      payload: {
+        requestId: params.requestId,
+        url: params.request?.url,
+        error: params.errorText,
+        canceled: params.canceled,
+        type: "failed",
+        tab: tabMeta
       }
     });
   }
 });
 
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  if (!state.recording) return;
-  if (activeInfo.tabId !== state.currentTabId) {
-    await handleAutoPause("Tab switched", activeInfo.tabId);
+  // Auto-pause disabled: keep recording across tab switches.
+  return;
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (!state.currentTabId || tabId !== state.currentTabId) return;
+  if (changeInfo.url || changeInfo.title) {
+    state.currentTabInfo = buildTabInfo(tab);
+    state.lastUrl = tab.url || state.lastUrl;
   }
 });
 
@@ -900,6 +1123,21 @@ async function getActiveTab() {
 }
 
 async function getTabEnvironment(tabId) {
+  try {
+    const response = await sendTabMessage(tabId, { type: "GET_ENV" });
+    if (response?.env) return response.env;
+  } catch {
+    // will attempt injection
+  }
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ["content.js"]
+    });
+  } catch (err) {
+    debugLog("content script injection failed", { error: err?.message || String(err) });
+    return null;
+  }
   try {
     const response = await sendTabMessage(tabId, { type: "GET_ENV" });
     return response?.env || null;

@@ -231,9 +231,9 @@ onMounted(() => {
 }
 
 .session-item.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
 }
 
 .session-item i {
@@ -250,29 +250,31 @@ onMounted(() => {
   font-size: 10px;
   padding: 2px 6px;
   border-radius: 4px;
-  background: var(--bg-elevated);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: var(--text-muted);
 }
 
 .session-status.completed {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  background: transparent;
+  color: var(--text-muted);
 }
 
 .session-status.failed {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  background: transparent;
+  color: var(--text-muted);
 }
 
 .session-status.recording {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
+  background: transparent;
+  color: var(--text-muted);
 }
 
 .session-status.paused {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
+  background: transparent;
+  color: var(--text-muted);
 }
 
 .session-status.unknown {
@@ -392,9 +394,9 @@ onMounted(() => {
 }
 
 .rail-session.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
+  background: var(--bg-hover);
+  border-color: var(--border-default);
+  color: var(--text-primary);
 }
 
 .rail-logout {

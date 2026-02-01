@@ -25,6 +25,9 @@ let recordingStartTime = null;
 let durationInterval = null;
 let authToken = null;
 let lastError = "";
+let lastState = "";
+let lastStateReason = "";
+let lastStateTs = "";
 
 // Tab switching
 tabs.forEach(tab => {
@@ -41,18 +44,34 @@ tabs.forEach(tab => {
 
 // Initialize state
 chrome.storage.local.get(
-  ["qa_recording", "qa_status", "qa_recording_start", "qa_auth_token", "qa_auth_email", "qa_debug"],
+  [
+    "qa_recording",
+    "qa_status",
+    "qa_recording_start",
+    "qa_auth_token",
+    "qa_auth_email",
+    "qa_debug",
+    "qa_last_error",
+    "qa_last_state",
+    "qa_last_state_reason",
+    "qa_last_state_ts"
+  ],
   (state) => {
     authToken = state.qa_auth_token || null;
     if (state.qa_auth_email) {
       loginEmail.value = state.qa_auth_email;
     }
     debugToggle.checked = state.qa_debug === true;
+    lastError = state.qa_last_error || "";
+    lastState = state.qa_last_state || "";
+    lastStateReason = state.qa_last_state_reason || "";
+    lastStateTs = state.qa_last_state_ts || "";
     updateAuthUI();
 
     isRecording = state.qa_recording || false;
     recordingStartTime = state.qa_recording_start ? new Date(state.qa_recording_start) : null;
-    updateUI(state.qa_status || (isRecording ? "recording" : "idle"));
+    const initialStatus = (state.qa_status || (isRecording ? "recording" : "idle")).toLowerCase();
+    updateUI(initialStatus);
   }
 );
 
@@ -74,7 +93,8 @@ function updateUI(status) {
     return;
   }
 
-  const state = status === "recording" ? "recording" : "idle";
+  const normalized = (status || "").toLowerCase();
+  const state = normalized === "recording" ? "recording" : "idle";
   recordingControl.dataset.state = state;
   
   if (state === "recording") {
@@ -89,6 +109,10 @@ function updateUI(status) {
     if (lastError) {
       statusText.textContent = lastError;
       statusText.classList.add("status-error");
+    } else if (lastState) {
+      const reasonText = lastStateReason ? ` (${lastStateReason})` : "";
+      statusText.textContent = `Last state: ${lastState}${reasonText}`;
+      statusText.classList.remove("status-error");
     } else {
       statusText.textContent = "Record your test session for AI analysis";
       statusText.classList.remove("status-error");
@@ -97,6 +121,23 @@ function updateUI(status) {
     stopDurationTimer();
     durationEl.textContent = "";
   }
+}
+
+function setLastError(message) {
+  lastError = message || "";
+  chrome.storage.local.set({ qa_last_error: lastError });
+}
+
+function refreshLastState(callback) {
+  chrome.storage.local.get(
+    ["qa_last_state", "qa_last_state_reason", "qa_last_state_ts"],
+    (state) => {
+      lastState = state.qa_last_state || "";
+      lastStateReason = state.qa_last_state_reason || "";
+      lastStateTs = state.qa_last_state_ts || "";
+      if (callback) callback();
+    }
+  );
 }
 
 function startDurationTimer() {
@@ -174,6 +215,9 @@ mainBtn.addEventListener("click", () => {
 
   if (isRecording) {
     chrome.runtime.sendMessage({ type: "STOP" }, () => {
+      if (chrome.runtime?.lastError) {
+        setLastError(chrome.runtime.lastError.message || "Failed to stop recording.");
+      }
       isRecording = false;
       chrome.storage.local.remove("qa_recording_start");
       updateUI("idle");
@@ -181,18 +225,35 @@ mainBtn.addEventListener("click", () => {
     });
   } else {
     const startTime = new Date().toISOString();
-    chrome.storage.local.set({ qa_recording_start: startTime });
+    chrome.storage.local.set({ qa_recording_start: startTime, qa_last_error: "" });
     recordingStartTime = new Date(startTime);
     lastError = "";
+    statusText.textContent = "Starting...";
+    statusText.classList.remove("status-error");
     chrome.runtime.sendMessage(
       {
         type: "START",
         apiBase: DEFAULT_API_BASE,
         debug: debugToggle.checked
       },
-      () => {
-      isRecording = true;
-      updateUI("recording");
+      (response) => {
+        if (chrome.runtime?.lastError) {
+          setLastError(chrome.runtime.lastError.message || "Failed to start recording.");
+          chrome.storage.local.remove("qa_recording_start");
+          isRecording = false;
+          updateUI("idle");
+          return;
+        }
+        if (!response?.ok) {
+          setLastError(response?.error || "Failed to start recording.");
+          chrome.storage.local.remove("qa_recording_start");
+          isRecording = false;
+          updateUI("idle");
+          return;
+        }
+        isRecording = true;
+        setLastError("");
+        updateUI("recording");
       }
     );
   }
@@ -216,17 +277,18 @@ openDashboard.addEventListener("click", () => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message.type === "STATUS") {
-    isRecording = message.value === "recording";
-    updateUI(message.value);
+    const normalized = (message.value || "").toLowerCase();
+    isRecording = normalized === "recording";
+    refreshLastState(() => updateUI(normalized));
     if (!isRecording) {
       syncSessions().finally(loadRecentSessions);
     }
   }
   if (message.type === "ERROR") {
-    lastError = message.message || "Recording error.";
+    setLastError(message.message || "Recording error.");
     isRecording = false;
     chrome.storage.local.remove("qa_recording_start");
-    updateUI("idle");
+    refreshLastState(() => updateUI("idle"));
   }
 });
 

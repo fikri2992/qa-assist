@@ -1,4 +1,8 @@
 ﻿(() => {
+  if (globalThis.__qaAssistContentLoaded) {
+    return;
+  }
+  globalThis.__qaAssistContentLoaded = true;
   let lastPointer = { x: 0, y: 0 };
   let annotationEl = null;
   let markerEl = null;
