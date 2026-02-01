@@ -32,6 +32,7 @@ export const useSessionsStore = defineStore("sessions", () => {
   const artifacts = ref([]);
   const chunks = ref([]);
   const currentChunkIndex = ref(0);
+  const aiHealth = ref(null);
 
   // Polling
   let analysisPoller = null;
@@ -142,6 +143,15 @@ export const useSessionsStore = defineStore("sessions", () => {
     }
   }
 
+  async function loadAiHealth() {
+    if (!apiBase.value || !authToken.value) return;
+    try {
+      aiHealth.value = await fetchJson(`${apiBase.value}/ai/health`);
+    } catch {
+      aiHealth.value = null;
+    }
+  }
+
   async function selectSession(sessionId) {
     loading.value = true;
     error.value = null;
@@ -213,6 +223,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     chunks,
     currentChunkIndex,
     currentChunk,
+    aiHealth,
     isAuthenticated,
     annotations,
     markers,
@@ -222,6 +233,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     login,
     logout,
     loadSessions,
+    loadAiHealth,
     selectSession,
     setCurrentChunk,
     nextChunk,

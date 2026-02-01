@@ -9,6 +9,16 @@ defmodule QaAssist.AI do
     end
   end
 
+  def health do
+    url = analysis_url("/health")
+
+    case Req.get(url) do
+      {:ok, %{status: 200, body: body}} -> {:ok, body}
+      {:ok, %{status: status}} -> {:error, "health failed with status #{status}"}
+      {:error, reason} -> {:error, Exception.message(reason)}
+    end
+  end
+
   defp analysis_url(path) do
     config = Application.get_env(:qa_assist, :analysis_service, [])
     base = Keyword.get(config, :url, "http://localhost:8000")

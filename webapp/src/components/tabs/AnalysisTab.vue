@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
 import { useSessionsStore } from "../../stores/sessions";
 import { storeToRefs } from "pinia";
 import Tag from "primevue/tag";
@@ -11,7 +11,7 @@ import AccordionContent from "primevue/accordioncontent";
 import Message from "primevue/message";
 
 const sessionsStore = useSessionsStore();
-const { analysis, issues } = storeToRefs(sessionsStore);
+const { analysis, issues, aiHealth } = storeToRefs(sessionsStore);
 
 const status = computed(() => analysis.value?.status || "pending");
 const summary = computed(() => analysis.value?.summary || "No analysis available yet.");
@@ -63,6 +63,14 @@ const rawReport = computed(() => {
   return JSON.stringify(analysis.value.final_report, null, 2);
 });
 
+const adkEnabled = computed(() => aiHealth.value?.adk_enabled === true);
+const adkStatusLabel = computed(() => (adkEnabled.value ? "ADK enabled" : "ADK disabled"));
+const adkStatusSeverity = computed(() => (adkEnabled.value ? "success" : "warn"));
+
+onMounted(() => {
+  sessionsStore.loadAiHealth();
+});
+
 function countSeverity(issues) {
   const counts = { high: 0, medium: 0, low: 0, unknown: 0 };
   issues.forEach((issue) => {
@@ -90,6 +98,7 @@ function getSeverity(severity) {
     <div class="analysis-header">
       <div class="analysis-summary">
         <Tag :value="status" :severity="statusSeverity" />
+        <Tag v-if="aiHealth" :value="adkStatusLabel" :severity="adkStatusSeverity" />
         <p class="summary-text">{{ summary }}</p>
       </div>
       <div class="severity-badges">

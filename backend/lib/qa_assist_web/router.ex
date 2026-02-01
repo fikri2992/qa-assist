@@ -15,6 +15,7 @@ defmodule QaAssistWeb.Router do
     pipe_through :api
 
     post "/auth/login", AuthController, :login
+    get "/ai/health", AiHealthController, :show
 
     post "/devices", DeviceController, :create
 
