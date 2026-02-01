@@ -231,6 +231,21 @@ async function ensureOffscreen() {
   }
 }
 
+function sendRuntimeMessage(message, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Offscreen message timed out")), timeoutMs);
+    chrome.runtime.sendMessage(message, (response) => {
+      clearTimeout(timer);
+      const err = chrome.runtime.lastError;
+      if (err) {
+        reject(new Error(err.message || "Offscreen message failed"));
+      } else {
+        resolve(response);
+      }
+    });
+  });
+}
+
 async function startCapture(tabId) {
   state.offscreenStopped = false;
   await ensureOffscreen();
@@ -242,7 +257,7 @@ async function startCapture(tabId) {
       targetTabId: tabId
     });
 
-    chrome.runtime.sendMessage({
+    const response = await sendRuntimeMessage({
       type: "OFFSCREEN_START",
       streamId,
       sessionId: state.sessionId,
@@ -252,6 +267,9 @@ async function startCapture(tabId) {
       apiBase: state.apiBase,
       authToken: state.authToken
     });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Offscreen failed to start recording");
+    }
   } catch (err) {
     console.warn("tabCapture failed, falling back to fake capture", err);
     enqueueEvent({
@@ -261,7 +279,7 @@ async function startCapture(tabId) {
         message: `Video capture failed; using synthetic video. ${err?.message || String(err)}`
       }
     });
-    chrome.runtime.sendMessage({
+    const response = await sendRuntimeMessage({
       type: "OFFSCREEN_START_FAKE",
       sessionId: state.sessionId,
       chunkDurationMs,
@@ -270,11 +288,18 @@ async function startCapture(tabId) {
       apiBase: state.apiBase,
       authToken: state.authToken
     });
+    if (!response?.ok) {
+      throw new Error(response?.error || "Offscreen failed to start synthetic recording");
+    }
   }
 }
 
 async function stopCapture() {
-  chrome.runtime.sendMessage({ type: "OFFSCREEN_STOP" });
+  try {
+    await sendRuntimeMessage({ type: "OFFSCREEN_STOP" }, 3000);
+  } catch (err) {
+    debugLog("offscreen stop message failed", { error: err?.message || String(err) });
+  }
 }
 
 function scheduleFlush() {
@@ -848,6 +873,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (Number.isFinite(message.chunkIndex)) {
         state.chunkIndex = Math.max(state.chunkIndex, message.chunkIndex + 1);
       }
+      persistState().catch(() => {});
       debugLog("chunk uploaded", {
         index: message.chunkIndex,
         bytes: message.byteSize,

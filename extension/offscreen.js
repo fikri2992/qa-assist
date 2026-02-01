@@ -225,13 +225,13 @@ function shouldAttachAuth(uploadUrl) {
 
 async function uploadChunk({ sessionId, chunkIndex, startTs, endTs, mimeType, blob, fake }) {
   if (!sessionId) return;
-  if (!authToken) {
-    logDebug("chunk upload skipped (no auth)", { index: chunkIndex });
-    return;
-  }
   pendingUploads += 1;
+  let chunkResponse = null;
   try {
-    const chunkResponse = await apiFetch(`/sessions/${sessionId}/chunks`, {
+    if (!authToken) {
+      throw new Error("auth token missing");
+    }
+    chunkResponse = await apiFetch(`/sessions/${sessionId}/chunks`, {
       method: "POST",
       body: JSON.stringify({
         idx: chunkIndex,
@@ -295,12 +295,40 @@ async function uploadChunk({ sessionId, chunkIndex, startTs, endTs, mimeType, bl
     });
   } catch (err) {
     logDebug("chunk upload failed", { index: chunkIndex, error: err?.message || String(err) });
-    chrome.runtime.sendMessage({
-      type: "CHUNK_FAILED",
-      sessionId,
-      chunkIndex,
-      error: err?.message || String(err)
-    });
+    const canFallback = !chunkResponse;
+    if (canFallback) {
+      try {
+        const buffer = await blob.arrayBuffer();
+        await sendChunkToBackground({
+          sessionId,
+          chunkIndex,
+          startTs,
+          endTs,
+          mimeType,
+          data: buffer,
+          fake: !!fake
+        });
+        return;
+      } catch (fallbackError) {
+        logDebug("chunk fallback failed", {
+          index: chunkIndex,
+          error: fallbackError?.message || String(fallbackError)
+        });
+        chrome.runtime.sendMessage({
+          type: "CHUNK_FAILED",
+          sessionId,
+          chunkIndex,
+          error: fallbackError?.message || String(fallbackError)
+        });
+      }
+    } else {
+      chrome.runtime.sendMessage({
+        type: "CHUNK_FAILED",
+        sessionId,
+        chunkIndex,
+        error: err?.message || String(err)
+      });
+    }
   } finally {
     pendingUploads = Math.max(0, pendingUploads - 1);
     maybeNotifyUploadsDone();
@@ -327,6 +355,23 @@ async function directUpload(uploadUrl, uploadMethod, uploadHeaders, blob) {
     method: uploadMethod,
     headers: shouldAuth ? authHeaders : undefined,
     body: formData
+  });
+}
+
+function sendChunkToBackground(payload) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ type: "CHUNK_DATA", ...payload }, (response) => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message || "chunk upload failed"));
+        return;
+      }
+      if (!response?.ok) {
+        reject(new Error(response?.error || "chunk upload failed"));
+        return;
+      }
+      resolve(response);
+    });
   });
 }
 
