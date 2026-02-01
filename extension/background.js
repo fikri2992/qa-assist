@@ -533,6 +533,26 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       });
     return true;
   }
+  if (message.type === "MARKER") {
+    if (!state.recording) {
+      sendResponse({ ok: false, error: "not recording" });
+      return true;
+    }
+    addMarker()
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: err?.message || String(err) }));
+    return true;
+  }
+  if (message.type === "ANNOTATE") {
+    if (!state.recording) {
+      sendResponse({ ok: false, error: "not recording" });
+      return true;
+    }
+    openAnnotation()
+      .then(() => sendResponse({ ok: true }))
+      .catch((err) => sendResponse({ ok: false, error: err?.message || String(err) }));
+    return true;
+  }
   if (message.type === "INTERACTION") {
     state.lastActivity = Date.now();
     if (state.recording) {

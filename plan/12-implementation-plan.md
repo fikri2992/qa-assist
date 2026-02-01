@@ -81,7 +81,7 @@ P0 = must fix for correctness/demo, P1 = completeness, P2 = quality/nice-to-have
 - [x] P0-1 Stop flow correctness
 - [x] P0-2 GCS analysis enqueue
 - [x] P0-3 Event queue gating
-- [ ] P1-4 Popup marker/annotation buttons
+- [x] P1-4 Popup marker/annotation buttons
 - [x] P1-4a Sidebar logout button
 - [x] P1-5 Deep-link consistency
 - [x] P1-6 Annotation overlay in playback
