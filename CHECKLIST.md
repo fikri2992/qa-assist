@@ -108,7 +108,7 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] Video analysis. (ADK multimodal prompt)
 - [x] Repro planner / synthesizer. (ADK agents + checkpoint context)
 - [x] Checkpoint persistence across chunks. (ai/services/checkpoints.py)
-- [ ] Playwright generator + verifier. (deferred)
+- [x] Playwright generator + verifier. (verifier script added)
 - [x] Script export. (Playwright script export with notes)
 
 ## 09 - Milestones and Risks (`plan/09-milestones-and-risks.md`)

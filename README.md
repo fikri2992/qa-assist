@@ -67,3 +67,10 @@ Open `http://localhost:5173` and login with the seeded user.
 - `docs/demo-script.md` — demo flow
 - `docs/writeup.md` — hackathon writeup draft
 - `docs/release-checklist.md` — demo/release readiness checklist
+
+## Playwright verifier
+Download and execute the generated Playwright script for a session:
+
+```
+QA_AUTH_TOKEN=... npm run verify:playwright -- --session <session_id>
+```
