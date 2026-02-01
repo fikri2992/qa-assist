@@ -69,8 +69,9 @@ defmodule QaAssist.Storage.Gcs do
     date = format_date(datetime)
     timestamp = format_timestamp(datetime)
 
-    credential_scope = "#{date}/auto/storage/goog4_request"
-    credential = uri_encode("#{config[:client_email]}/#{credential_scope}")
+    region = config[:region] || "auto"
+    credential_scope = "#{date}/#{region}/storage/goog4_request"
+    credential = "#{config[:client_email]}/#{credential_scope}"
 
     signed_headers = headers |> Map.keys() |> Enum.map(&String.downcase/1) |> Enum.sort()
     signed_headers_string = Enum.join(signed_headers, ";")
@@ -89,7 +90,9 @@ defmodule QaAssist.Storage.Gcs do
         "X-Goog-SignedHeaders" => signed_headers_string
       }
       |> Enum.sort_by(fn {key, _} -> key end)
-      |> Enum.map(fn {key, value} -> "#{key}=#{value}" end)
+      |> Enum.map(fn {key, value} ->
+        "#{uri_encode(to_string(key))}=#{uri_encode(to_string(value))}"
+      end)
       |> Enum.join("&")
 
     canonical_request =
@@ -161,7 +164,8 @@ defmodule QaAssist.Storage.Gcs do
       bucket: Keyword.get(gcs, :bucket),
       client_email: Keyword.get(gcs, :client_email),
       private_key: Keyword.get(gcs, :private_key),
-      expires: Keyword.get(gcs, :expires)
+      expires: Keyword.get(gcs, :expires),
+      region: Keyword.get(gcs, :region)
     }
   end
 

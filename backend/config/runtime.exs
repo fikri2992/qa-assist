@@ -48,7 +48,8 @@ if storage_backend == "gcs" do
       bucket: System.get_env("GCS_BUCKET"),
       client_email: System.get_env("GCS_SIGNING_EMAIL"),
       private_key: System.get_env("GCS_SIGNING_PRIVATE_KEY"),
-      expires: String.to_integer(System.get_env("GCS_UPLOAD_EXPIRES", "900"))
+      expires: String.to_integer(System.get_env("GCS_UPLOAD_EXPIRES", "900")),
+      region: System.get_env("GCS_SIGNING_REGION", "auto")
     ]
 else
   config :qa_assist, :storage, backend: QaAssist.Storage.Local
