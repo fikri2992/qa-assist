@@ -21,7 +21,12 @@ const state = {
   autoPaused: false,
   flushTimer: null,
   idleTimer: null,
-  eventQueue: []
+  eventQueue: [],
+  stopInProgress: false,
+  pendingChunkUploads: 0,
+  pendingChunkWaiters: [],
+  offscreenStopped: false,
+  offscreenStopWaiters: []
 };
 
 async function loadState() {
@@ -202,6 +207,7 @@ async function ensureOffscreen() {
 }
 
 async function startCapture(tabId) {
+  state.offscreenStopped = false;
   await ensureOffscreen();
   const chunkDurationMs = state.chunkDurationMs || CHUNK_DURATION_MS;
 
@@ -250,8 +256,57 @@ function scheduleIdleCheck() {
   }, 15000);
 }
 
-async function flushEvents() {
+function clearTimers() {
+  if (state.flushTimer) {
+    clearInterval(state.flushTimer);
+    state.flushTimer = null;
+  }
+  if (state.idleTimer) {
+    clearInterval(state.idleTimer);
+    state.idleTimer = null;
+  }
+}
+
+function resolvePendingUploads() {
+  if (state.pendingChunkUploads > 0) return;
+  const waiters = state.pendingChunkWaiters.slice();
+  state.pendingChunkWaiters = [];
+  waiters.forEach((resolve) => resolve());
+}
+
+function waitForPendingUploads(timeoutMs) {
+  if (state.pendingChunkUploads === 0) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), timeoutMs);
+    state.pendingChunkWaiters.push(() => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+}
+
+function markOffscreenStopped(sessionId) {
+  state.offscreenStopped = true;
+  const waiters = state.offscreenStopWaiters.slice();
+  state.offscreenStopWaiters = [];
+  waiters.forEach((resolve) => resolve());
+  debugLog("offscreen stopped", { sessionId });
+}
+
+function waitForOffscreenStop(timeoutMs) {
+  if (state.offscreenStopped) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), timeoutMs);
+    state.offscreenStopWaiters.push(() => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+}
+
+async function flushEvents({ force = false } = {}) {
   if (!state.sessionId || state.eventQueue.length === 0) return;
+  if (!force && !state.recording) return;
   const batch = state.eventQueue.splice(0, state.eventQueue.length);
   try {
     debugLog("flushing events", { count: batch.length });
@@ -266,6 +321,10 @@ async function flushEvents() {
 }
 
 function enqueueEvent(event) {
+  if (!state.recording) {
+    debugLog("event dropped (not recording)", { type: event?.type });
+    return;
+  }
   state.eventQueue.push(event);
   scheduleFlush();
 }
@@ -292,13 +351,15 @@ async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverr
     state.chunkIndex = details?.chunks?.length || state.chunkIndex;
     await updateSessionEntry(state.sessionId, { status: "recording" });
   } else {
-  await createSession(tab, env);
-  await startSession();
+    await createSession(tab, env);
+    await startSession();
+    state.eventQueue = [];
   }
 
   state.recording = true;
   state.status = "recording";
   state.autoPaused = false;
+  state.stopInProgress = false;
   state.receivedChunks = 0;
   state.currentTabId = tab.id;
   state.lastUrl = tab.url || null;
@@ -336,40 +397,55 @@ async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverr
 async function stopRecording() {
   await loadState();
   if (!state.sessionId) return;
+  if (state.stopInProgress) return;
+  state.stopInProgress = true;
 
   const sessionId = state.sessionId;
   const wasRecording = state.recording;
-  debugLog("stopping recording", { sessionId });
-  state.recording = false;
-  state.status = "ended";
-  state.autoPaused = false;
-  await persistState();
-
-  if (wasRecording && state.currentTabId) {
-    await detachDebugger(state.currentTabId);
-  }
-
-  if (wasRecording) {
-    await stopCapture();
-  }
-  await flushEvents();
-  state.eventQueue = [];
   try {
-    await chrome.storage.local.set({ qa_debug_before_synth: state.receivedChunks });
-  } catch {
-    // ignore
-  }
-  await waitForChunk(2000);
-  if (state.receivedChunks === 0) {
-    await createSyntheticChunk(sessionId);
-  }
-  await stopSession();
-  state.sessionId = null;
-  await persistState();
-  await updateSessionEntry(sessionId, { status: "ended", ended_at: new Date().toISOString() });
+    debugLog("stopping recording", { sessionId });
+    state.recording = false;
+    state.status = "ended";
+    state.autoPaused = false;
+    await persistState();
+    clearTimers();
 
-  notifyStatus("Stopped");
-  debugLog("recording stopped", { sessionId });
+    if (wasRecording && state.currentTabId) {
+      await detachDebugger(state.currentTabId);
+    }
+
+    if (wasRecording) {
+      await stopCapture();
+      await waitForOffscreenStop(5000);
+    }
+    await flushEvents({ force: true });
+    state.eventQueue = [];
+    try {
+      await chrome.storage.local.set({ qa_debug_before_synth: state.receivedChunks });
+    } catch {
+      // ignore
+    }
+    const uploadsDone = await waitForPendingUploads(15000);
+    if (!uploadsDone) {
+      debugLog("pending uploads timeout", { pending: state.pendingChunkUploads });
+    }
+    if (state.receivedChunks === 0) {
+      await createSyntheticChunk(sessionId);
+      await waitForPendingUploads(15000);
+    }
+    try {
+      await stopSession();
+    } finally {
+      state.sessionId = null;
+      await persistState();
+      await updateSessionEntry(sessionId, { status: "ended", ended_at: new Date().toISOString() });
+    }
+
+    notifyStatus("Stopped");
+    debugLog("recording stopped", { sessionId });
+  } finally {
+    state.stopInProgress = false;
+  }
 }
 
 async function pauseRecording(autoPaused = false) {
@@ -381,13 +457,14 @@ async function pauseRecording(autoPaused = false) {
   state.status = "paused";
   state.autoPaused = autoPaused;
   await persistState();
+  clearTimers();
 
   if (state.currentTabId) {
     await detachDebugger(state.currentTabId);
   }
 
   await stopCapture();
-  await flushEvents();
+  await flushEvents({ force: true });
   await pauseSession();
   await updateSessionEntry(state.sessionId, { status: "paused" });
 
@@ -428,6 +505,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     state.offscreenReady = true;
     state.offscreenReadyWaiters.forEach((resolve) => resolve());
     state.offscreenReadyWaiters = [];
+    sendResponse({ ok: true });
+    return true;
+  }
+  if (message.type === "OFFSCREEN_STOPPED") {
+    markOffscreenStopped(message.sessionId);
     sendResponse({ ok: true });
     return true;
   }
@@ -538,77 +620,88 @@ chrome.commands.onCommand.addListener(async (command) => {
 });
 
 async function handleChunkData(message) {
+  state.pendingChunkUploads += 1;
   const sessionId = message.sessionId || state.sessionId;
   if (!sessionId) {
     debugLog("chunk dropped (missing sessionId)");
+    state.pendingChunkUploads = Math.max(0, state.pendingChunkUploads - 1);
+    resolvePendingUploads();
     return;
   }
 
-  state.receivedChunks += 1;
   try {
-    await chrome.storage.local.set({ qa_debug_received_chunks: state.receivedChunks });
-  } catch {
-    // ignore storage failures
-  }
-  const chunkResponse = await apiFetch(`/sessions/${sessionId}/chunks`, {
-    method: "POST",
-    body: JSON.stringify({
-      idx: message.chunkIndex,
-      start_ts: new Date(message.startTs).toISOString(),
-      end_ts: new Date(message.endTs).toISOString(),
-      content_type: message.mimeType
-    })
-  });
-  debugLog("chunk created", { index: message.chunkIndex, id: chunkResponse.chunk?.id });
-
-  state.chunkIndex = message.chunkIndex + 1;
-  await persistState();
-
-  const uploadUrl = chunkResponse.upload_url;
-  const uploadMethod = chunkResponse.upload_method || "POST";
-  const uploadHeaders = chunkResponse.upload_headers || {};
-  const resumable = chunkResponse.resumable;
-  const storage = chunkResponse.storage;
-  const gcsUri = chunkResponse.gcs_uri;
-
-  const blob = new Blob([message.data], { type: message.mimeType || "video/webm" });
-
-  if (resumable && resumable.start_url) {
-    const startHeaders = resumable.start_headers || {};
-    const startResponse = await fetch(resumable.start_url, {
-      method: resumable.start_method || "POST",
-      headers: startHeaders
+    state.receivedChunks += 1;
+    try {
+      await chrome.storage.local.set({ qa_debug_received_chunks: state.receivedChunks });
+    } catch {
+      // ignore storage failures
+    }
+    const chunkResponse = await apiFetch(`/sessions/${sessionId}/chunks`, {
+      method: "POST",
+      body: JSON.stringify({
+        idx: message.chunkIndex,
+        start_ts: new Date(message.startTs).toISOString(),
+        end_ts: new Date(message.endTs).toISOString(),
+        content_type: message.mimeType
+      })
     });
+    debugLog("chunk created", { index: message.chunkIndex, id: chunkResponse.chunk?.id });
 
-    const sessionUrl = startResponse.headers.get("Location");
-    if (sessionUrl) {
-      await fetch(sessionUrl, {
-        method: "PUT",
-        headers: {
-          "Content-Type": blob.type,
-          "Content-Range": `bytes 0-${blob.size - 1}/${blob.size}`
-        },
-        body: blob
+    state.chunkIndex = message.chunkIndex + 1;
+    await persistState();
+
+    const uploadUrl = chunkResponse.upload_url;
+    const uploadMethod = chunkResponse.upload_method || "POST";
+    const uploadHeaders = chunkResponse.upload_headers || {};
+    const resumable = chunkResponse.resumable;
+    const storage = chunkResponse.storage;
+    const gcsUri = chunkResponse.gcs_uri;
+
+    const blob = new Blob([message.data], { type: message.mimeType || "video/webm" });
+
+    if (resumable && resumable.start_url) {
+      const startHeaders = resumable.start_headers || {};
+      const startResponse = await fetch(resumable.start_url, {
+        method: resumable.start_method || "POST",
+        headers: startHeaders
       });
+
+      const sessionUrl = startResponse.headers.get("Location");
+      if (sessionUrl) {
+        await fetch(sessionUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": blob.type,
+            "Content-Range": `bytes 0-${blob.size - 1}/${blob.size}`
+          },
+          body: blob
+        });
+      } else {
+        await directUpload(uploadUrl, uploadMethod, uploadHeaders, blob);
+      }
     } else {
       await directUpload(uploadUrl, uploadMethod, uploadHeaders, blob);
     }
-  } else {
-    await directUpload(uploadUrl, uploadMethod, uploadHeaders, blob);
-  }
 
-  if (storage === "gcs" && gcsUri) {
-    await apiFetch(`/chunks/${chunkResponse.chunk.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        status: "ready",
-        analysis_status: "pending",
-        gcs_uri: gcsUri,
-        byte_size: blob.size,
-        content_type: blob.type
-      })
-    });
-    debugLog("chunk marked ready", { id: chunkResponse.chunk.id, bytes: blob.size });
+    if (storage === "gcs" && gcsUri) {
+      await apiFetch(`/chunks/${chunkResponse.chunk.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          status: "ready",
+          analysis_status: "pending",
+          gcs_uri: gcsUri,
+          byte_size: blob.size,
+          content_type: blob.type
+        })
+      });
+      debugLog("chunk marked ready", { id: chunkResponse.chunk.id, bytes: blob.size });
+    }
+  } catch (err) {
+    console.warn("chunk handling failed", err);
+    throw err;
+  } finally {
+    state.pendingChunkUploads = Math.max(0, state.pendingChunkUploads - 1);
+    resolvePendingUploads();
   }
 }
 
@@ -678,15 +771,6 @@ async function waitForOffscreenReady(timeoutMs) {
       resolve(true);
     });
   });
-}
-
-async function waitForChunk(timeoutMs) {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
-    if (state.receivedChunks > 0) return true;
-    await new Promise((resolve) => setTimeout(resolve, 200));
-  }
-  return false;
 }
 
 async function createSyntheticChunk(sessionId) {

@@ -14,9 +14,11 @@ defmodule QaAssist.Analysis do
         :ok
 
       _ ->
-        Task.Supervisor.start_child(QaAssist.TaskSupervisor, fn ->
-          Runner.run_chunk(chunk)
-        end)
+        if fallback_enabled?() do
+          Task.Supervisor.start_child(QaAssist.TaskSupervisor, fn ->
+            Runner.run_chunk(chunk)
+          end)
+        end
     end
 
     :ok
@@ -68,9 +70,11 @@ defmodule QaAssist.Analysis do
         :ok
 
       _ ->
-        Task.Supervisor.start_child(QaAssist.TaskSupervisor, fn ->
-          Runner.run_session(session)
-        end)
+        if fallback_enabled?() do
+          Task.Supervisor.start_child(QaAssist.TaskSupervisor, fn ->
+            Runner.run_session(session)
+          end)
+        end
     end
 
     :ok
@@ -161,5 +165,9 @@ defmodule QaAssist.Analysis do
       nil -> nil
       analysis -> analysis.report
     end
+  end
+
+  defp fallback_enabled? do
+    Application.get_env(:qa_assist, :analysis_fallback, true)
   end
 end

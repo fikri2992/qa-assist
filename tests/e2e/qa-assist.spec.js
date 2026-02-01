@@ -337,6 +337,13 @@ test('records a full session with extension + backend + AI', async () => {
     await appPage.bringToFront();
     await sendExtensionMessage(context, extensionId, { type: 'STOP' });
 
+    await logStep('waiting for extension to reset', appPage);
+    await pollUntil(async () => {
+      const state = await readExtensionState(context, extensionId);
+      if (!state) return null;
+      return !state.qa_recording && !state.qa_session_id ? state : null;
+    }, 15000, 500, 'extension reset', appPage);
+
     await appPage.waitForTimeout(2500);
     const syntheticStatus = await readDebugSynthetic(context, extensionId);
     await logStep(
@@ -375,6 +382,23 @@ test('records a full session with extension + backend + AI', async () => {
 
     expect(sessionDetail.chunks.length).toBeGreaterThan(0);
     expect(events.length).toBeGreaterThan(0);
+
+    const eventCount = events.length;
+    await logStep('sending post-stop interaction', appPage);
+    await authPage.evaluate(() => {
+      chrome.runtime.sendMessage({
+        type: 'INTERACTION',
+        event: {
+          ts: new Date().toISOString(),
+          type: 'interaction',
+          payload: { source: 'e2e-post-stop' }
+        }
+      });
+    });
+    await appPage.waitForTimeout(1000);
+    const eventsResAfter = await context.request.get(`${API_BASE}/sessions/${session.id}/events?limit=1000`, { headers });
+    const eventsAfter = await eventsResAfter.json();
+    expect(eventsAfter.length).toBe(eventCount);
 
     await logStep('polling for analysis', appPage);
     const analysis = await pollUntil(async () => {

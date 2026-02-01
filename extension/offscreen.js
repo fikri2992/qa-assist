@@ -56,6 +56,10 @@ async function startRecording({ streamId, chunkDurationMs, chunkStartIndex, debu
   chunkIndex = Number.isFinite(chunkStartIndex) ? chunkStartIndex : 0;
   currentChunkStart = Date.now();
   logDebug("offscreen recording started");
+  const stoppedSessionId = currentSessionId;
+  mediaRecorder.onstop = () => {
+    chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
+  };
 
   mediaRecorder.ondataavailable = async (event) => {
     if (!event.data || event.data.size === 0) return;
@@ -103,6 +107,10 @@ async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, ses
   chunkIndex = Number.isFinite(chunkStartIndex) ? chunkStartIndex : 0;
   currentChunkStart = Date.now();
   logDebug("fake recording started");
+  const stoppedSessionId = currentSessionId;
+  mediaRecorder.onstop = () => {
+    chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
+  };
 
   fakeTimer = setInterval(() => {
     if (!fakeCtx) return;
@@ -143,10 +151,16 @@ function stopRecording() {
   if (!isRecording) return;
   isRecording = false;
   logDebug("offscreen recording stopped");
+  const stoppedSessionId = currentSessionId;
   currentSessionId = null;
 
   if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.onstop = () => {
+      chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
+    };
     mediaRecorder.stop();
+  } else {
+    chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
   }
 
   if (fakeTimer) {

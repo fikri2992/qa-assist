@@ -107,13 +107,21 @@ defmodule QaAssist.Recording do
   end
 
   def update_chunk(%Chunk{} = chunk, attrs) do
+    status = Map.get(attrs, "status", chunk.status)
+    analysis_status = Map.get(attrs, "analysis_status", chunk.analysis_status)
+    idx = Map.get(attrs, "idx", chunk.idx)
+    gcs_uri = Map.get(attrs, "gcs_uri", chunk.gcs_uri)
+    byte_size = Map.get(attrs, "byte_size", chunk.byte_size)
+    content_type = Map.get(attrs, "content_type", chunk.content_type)
+
     chunk
     |> Chunk.changeset(%{
-      status: attrs["status"],
-      analysis_status: attrs["analysis_status"],
-      gcs_uri: attrs["gcs_uri"],
-      byte_size: attrs["byte_size"],
-      content_type: attrs["content_type"]
+      idx: idx,
+      status: status,
+      analysis_status: analysis_status,
+      gcs_uri: gcs_uri,
+      byte_size: byte_size,
+      content_type: content_type
     })
     |> Repo.update()
     |> case do

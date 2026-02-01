@@ -13,12 +13,12 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] Environment metadata (window/screen size, OS, browser version). (viewport/screen/platform/userAgentData added)
 - [x] Idle/tab-switch auto-pause with resume prompt. (extension/background.js + content.js)
 - [x] Store session artifacts in backend. (backend/lib/qa_assist/storage/local.ex)
-- [~] AI analysis per chunk. (local uploads enqueue; GCS update path does not)
-- [~] Aggregated report after session end. (stop API not always called from extension)
+- [x] AI analysis per chunk. (chunk ready now enqueues for GCS + local)
+- [x] Aggregated report after session end. (stop flow calls stop API + flush)
 
 ## 02 - Requirements and Decisions (`plan/02-requirements-and-decisions.md`)
-- [~] Start/stop recording from extension UI. (stop API not called before sessionId reset)
-- [~] Stop flow flushes events and final chunk before ending session.
+- [x] Start/stop recording from extension UI. (stop API called after flush + upload)
+- [x] Stop flow flushes events and final chunk before ending session.
 - [x] Require login for extension + webapp (seeded demo user, bearer token, no expiry).
 - [x] 10-minute chunked video. (extension/background.js)
 - [x] Console + network logs. (extension/background.js)
@@ -30,7 +30,7 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] Interaction trail (clicks + DOM context). (webapp/src/components/tabs/EventsTab.vue)
 - [~] Annotations overlay on video. (pins + list exist; overlay missing)
 - [x] Chat UI. (webapp/src/components/AssistantPanel.vue)
-- [~] AI per chunk with aggregated report. (GCS uploads do not enqueue analysis)
+- [x] AI per chunk with aggregated report. (GCS + local enqueue)
 - [x] Resumable uploads. (GCS resumable supported)
 - [x] Tab switch + idle handling. (auto-pause with resume prompt)
 - [x] GCS storage + signed URLs. (supported via env)
@@ -78,7 +78,7 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] `GET /` root API ping. (root_controller.ex)
 
 ## 06 - Extension (`plan/06-extension.md`)
-- [~] Start/stop session. (stop flow bug)
+- [x] Start/stop session. (stop flow fixed)
 - [x] Active-tab video capture.
 - [x] Console + network logs.
 - [x] Interaction capture + DOM context.
@@ -87,7 +87,7 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [~] Markers + annotations overlay. (popup buttons not wired)
 - [x] Session list stored locally. (popup syncs list)
 - [x] Login required (token stored in popup, Bearer auth on API calls).
-- [~] Event queue only records during active session. (needs gating)
+- [x] Event queue only records during active session. (gated to recording)
 
 ## 07 - Web App (`plan/07-webapp.md`)
 - [x] Session list view. (webapp/src/pages/SessionsPage.vue)
