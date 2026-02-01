@@ -9,7 +9,7 @@ Show a complete loop: capture -> annotate -> analyze -> playback -> chat.
 
 2) **Start capture (20s)**
    - Open extension popup.
-   - Set API URL + start session.
+   - Login (demo user) + start session.
    - Mention auto-chunking.
 
 3) **Reproduce a bug (45s)**
@@ -21,7 +21,7 @@ Show a complete loop: capture -> annotate -> analyze -> playback -> chat.
 
 5) **Playback (45s)**
    - Open web app.
-   - Load session by device id.
+   - Login and load session.
    - Show timeline, markers, annotations, and logs.
    - Scrub across chunks.
 

@@ -5,7 +5,7 @@
 - [ ] Public demo link published
 - [ ] Public repo link shared
 - [ ] Submission text finalized (problem, solution, Gemini 3 usage)
-- [ ] Sample session available without login
+- [ ] Demo user seeded and login working
 
 ## Demo Prep
 - [ ] Clean demo run captured (with a real bug)

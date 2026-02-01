@@ -31,11 +31,11 @@ Exploratory testing produces rich signals (video + logs + user intent) but they 
 
 ## Tech stack
 - Extension: Chrome MV3 + JS + Tailwind v4
-- Web: Static HTML/JS + Tailwind v4
+- Web: Vite + Vue + PrimeVue + Tailwind v4
 - Backend: Elixir Phoenix + Postgres + Redis
 - AI: FastAPI + Google ADK + Gemini models
 
 ## What's next
 - More robust video timestamp alignment
-- Script export (Playwright) from repro steps
+- Playwright verifier + replay stabilization
 - Polished demo hosting and public link
