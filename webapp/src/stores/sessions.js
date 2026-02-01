@@ -3,9 +3,22 @@ import { ref, computed } from "vue";
 
 export const useSessionsStore = defineStore("sessions", () => {
   // Connection
-  const apiBase = ref(localStorage.getItem("qa_api_base") || "http://localhost:4000/api");
+  const defaultApiBase = (() => {
+    if (typeof window === "undefined") return "http://localhost:4000/api";
+    const host = window.location.hostname;
+    return host === "localhost" || host === "127.0.0.1" ? "/api" : "http://localhost:4000/api";
+  })();
+  const storedApiBase = localStorage.getItem("qa_api_base");
+  const apiBase = ref(storedApiBase || defaultApiBase);
   const authToken = ref(localStorage.getItem("qa_auth_token") || "");
   const authEmail = ref(localStorage.getItem("qa_auth_email") || "");
+
+  if (!storedApiBase) {
+    localStorage.setItem("qa_api_base", apiBase.value);
+  } else if (storedApiBase === "http://localhost:4000/api" && defaultApiBase === "/api") {
+    apiBase.value = "/api";
+    localStorage.setItem("qa_api_base", apiBase.value);
+  }
 
   // Sessions
   const sessions = ref([]);
