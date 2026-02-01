@@ -225,7 +225,10 @@ async function ensureOffscreen() {
       justification: "Record active tab video"
     });
   }
-  await waitForOffscreenReady(2000);
+  const ready = await waitForOffscreenReady(2000);
+  if (!ready) {
+    throw new Error("Offscreen document did not become ready.");
+  }
 }
 
 async function startCapture(tabId) {
@@ -251,6 +254,13 @@ async function startCapture(tabId) {
     });
   } catch (err) {
     console.warn("tabCapture failed, falling back to fake capture", err);
+    enqueueEvent({
+      ts: new Date().toISOString(),
+      type: "marker",
+      payload: {
+        message: `Video capture failed; using synthetic video. ${err?.message || String(err)}`
+      }
+    });
     chrome.runtime.sendMessage({
       type: "OFFSCREEN_START_FAKE",
       sessionId: state.sessionId,
@@ -545,7 +555,15 @@ async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverr
   }
   recordState("recording", "started");
 
-  await startCapture(tab.id);
+  try {
+    await startCapture(tab.id);
+  } catch (err) {
+    state.recording = false;
+    state.status = "idle";
+    await persistState();
+    recordState("start_failed", err?.message || "capture failed");
+    throw err;
+  }
 
   chrome.tabs.sendMessage(tab.id, { type: "HIDE_RESUME_PROMPT" });
 
@@ -590,6 +608,16 @@ async function stopRecording() {
 
     if (wasRecording && state.currentTabId) {
       await detachDebugger(state.currentTabId);
+    }
+
+    await stopCapture();
+    const stopped = await waitForOffscreenStop(5000);
+    const uploadsDone = await waitForOffscreenUploads(15000);
+    if (!stopped) {
+      debugLog("offscreen stop timed out");
+    }
+    if (!uploadsDone) {
+      debugLog("offscreen uploads timed out");
     }
 
     const flushed = await flushEventsWithRetry(3);
