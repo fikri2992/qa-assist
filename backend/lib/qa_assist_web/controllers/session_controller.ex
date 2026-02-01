@@ -3,6 +3,7 @@ defmodule QaAssistWeb.SessionController do
 
   alias QaAssist.Recording
   alias QaAssist.Storage
+  alias QaAssist.Artifacts
   alias QaAssistWeb.ControllerHelpers
 
   def index(conn, _params) do
@@ -64,6 +65,7 @@ defmodule QaAssistWeb.SessionController do
   def stop(conn, %{"id" => id}) do
     with {:ok, session} <- ControllerHelpers.require_session(conn, id),
          {:ok, updated} <- Recording.stop_session(session) do
+      _ = Artifacts.rebuild_session_json(updated.id)
       json(conn, %{session: session_payload(updated)})
     else
       {:error, %Plug.Conn{} = conn} -> conn
@@ -111,7 +113,8 @@ defmodule QaAssistWeb.SessionController do
       status: session.status,
       started_at: session.started_at,
       ended_at: session.ended_at,
-      inserted_at: session.inserted_at
+      inserted_at: session.inserted_at,
+      storage_backend: storage_backend()
     }
   end
 
@@ -123,7 +126,8 @@ defmodule QaAssistWeb.SessionController do
       started_at: session.started_at,
       ended_at: session.ended_at,
       idle_paused_at: session.idle_paused_at,
-      metadata: session.metadata || %{}
+      metadata: session.metadata || %{},
+      storage_backend: storage_backend()
     }
   end
 
@@ -139,5 +143,12 @@ defmodule QaAssistWeb.SessionController do
       gcs_uri: chunk.gcs_uri,
       video_url: Storage.media_url(chunk.gcs_uri)
     }
+  end
+
+  defp storage_backend do
+    case Storage.backend_module() do
+      QaAssist.Storage.Gcs -> "gcs"
+      _ -> "local"
+    end
   end
 end

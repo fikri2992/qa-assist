@@ -692,21 +692,8 @@ async function stopRecording() {
 async function uploadSessionJson(sessionId) {
   if (!sessionId) return;
   try {
-    const meta = state.sessionMeta || {};
-    const payload = {
-      session: {
-        id: sessionId,
-        started_at: meta.started_at || null,
-        ended_at: new Date().toISOString(),
-        url: meta.url || state.lastUrl,
-        title: meta.title || "",
-        metadata: meta.metadata || {}
-      },
-      events: state.localEvents.slice()
-    };
-    await apiFetch(`/sessions/${sessionId}/session-json`, {
-      method: "POST",
-      body: JSON.stringify(payload)
+    await apiFetch(`/sessions/${sessionId}/session-json/rebuild`, {
+      method: "POST"
     });
   } catch (err) {
     debugLog("session json upload failed", { error: err?.message || String(err) });

@@ -184,6 +184,24 @@ export const useSessionsStore = defineStore("sessions", () => {
     }
   }
 
+  async function refreshArtifacts(sessionId) {
+    if (!currentSession.value || currentSession.value.id !== sessionId) return;
+    try {
+      artifacts.value = await fetchJson(`${apiBase.value}/sessions/${sessionId}/artifacts`);
+    } catch {
+      // ignore refresh failures
+    }
+  }
+
+  async function rebuildSessionJson(sessionId) {
+    if (!sessionId) return null;
+    const data = await fetchJson(`${apiBase.value}/sessions/${sessionId}/session-json/rebuild`, {
+      method: "POST",
+    });
+    await refreshArtifacts(sessionId);
+    return data;
+  }
+
   function setCurrentChunk(index) {
     currentChunkIndex.value = Math.max(0, Math.min(index, chunks.value.length - 1));
   }
@@ -285,5 +303,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     stopAnalysisPolling,
     startLivePolling,
     stopLivePolling,
+    refreshArtifacts,
+    rebuildSessionJson,
   };
 });

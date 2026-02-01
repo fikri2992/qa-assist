@@ -192,6 +192,14 @@ defmodule QaAssist.Recording do
     |> Repo.all()
   end
 
+  def list_events_all(session_id) do
+    from(e in Event,
+      where: e.session_id == ^session_id,
+      order_by: [asc: e.ts]
+    )
+    |> Repo.all()
+  end
+
   defp build_event(session_id, %{"ts" => ts, "type" => type, "payload" => payload}) do
     case parse_ts(ts) do
       nil ->

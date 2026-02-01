@@ -2,6 +2,7 @@ defmodule QaAssist.Artifacts do
   import Ecto.Query, only: [from: 2]
 
   alias QaAssist.Storage
+  alias QaAssist.Recording
   alias QaAssist.Recording.Artifact
   alias QaAssist.Recording.Event
   alias QaAssist.Recording.Session
@@ -19,6 +20,17 @@ defmodule QaAssist.Artifacts do
             order_by: [desc: a.inserted_at]
           )
           |> Repo.all()
+
+        {session_json, other} = Enum.split_with(stored, &(&1.kind == "session-json"))
+
+        session_json_entry =
+          case session_json do
+            [artifact | _] -> artifact_payload(artifact)
+            [] -> missing_session_json(session_id)
+          end
+
+        stored_entries =
+          other
           |> Enum.map(&artifact_payload/1)
 
         playwright = %{
@@ -29,7 +41,7 @@ defmodule QaAssist.Artifacts do
           description: "Generated from interaction events"
         }
 
-        [playwright | stored]
+        [session_json_entry, playwright | stored_entries]
     end
   end
 
@@ -110,6 +122,18 @@ defmodule QaAssist.Artifacts do
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  def rebuild_session_json(session_id) do
+    case Repo.get(Session, session_id) do
+      nil ->
+        {:error, :not_found}
+
+      session ->
+        events = Recording.list_events_all(session_id)
+        payload = build_session_payload(session, events)
+        store_session_json(session_id, payload)
     end
   end
 
@@ -228,6 +252,46 @@ defmodule QaAssist.Artifacts do
       byte_size: artifact.byte_size,
       status: artifact.status,
       inserted_at: artifact.inserted_at
+    }
+  end
+
+  defp missing_session_json(session_id) do
+    %{
+      id: nil,
+      session_id: session_id,
+      name: "Session events",
+      kind: "session-json",
+      format: "json",
+      description: "Captured console, network, and interaction events",
+      content_type: "application/json",
+      gcs_uri: nil,
+      byte_size: nil,
+      status: "missing",
+      inserted_at: nil
+    }
+  end
+
+  defp build_session_payload(%Session{} = session, events) when is_list(events) do
+    metadata = session.metadata || %{}
+
+    %{
+      session: %{
+        id: session.id,
+        started_at: session.started_at,
+        ended_at: session.ended_at,
+        url: metadata["url"] || metadata[:url],
+        title: metadata["title"] || metadata[:title],
+        metadata: metadata
+      },
+      events: Enum.map(events, &event_payload/1)
+    }
+  end
+
+  defp event_payload(%Event{} = event) do
+    %{
+      ts: event.ts,
+      type: event.type,
+      payload: event.payload
     }
   end
 end
