@@ -172,6 +172,10 @@ body {
   color: #7d8590;
 }
 
+.status-text.status-error {
+  color: #ef4444;
+}
+
 .duration {
   display: block;
   margin-top: 8px;

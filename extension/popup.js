@@ -24,6 +24,7 @@ let isRecording = false;
 let recordingStartTime = null;
 let durationInterval = null;
 let authToken = null;
+let lastError = "";
 
 // Tab switching
 tabs.forEach(tab => {
@@ -66,6 +67,7 @@ function updateUI(status) {
     recordingControl.dataset.state = "idle";
     mainBtn.querySelector(".btn-label").textContent = "Start Recording";
     statusText.textContent = "Login required to record";
+    statusText.classList.remove("status-error");
     quickActions.classList.add("hidden");
     stopDurationTimer();
     durationEl.textContent = "";
@@ -78,11 +80,19 @@ function updateUI(status) {
   if (state === "recording") {
     mainBtn.querySelector(".btn-label").textContent = "Stop Recording";
     statusText.textContent = "";
+    statusText.classList.remove("status-error");
+    lastError = "";
     quickActions.classList.remove("hidden");
     startDurationTimer();
   } else {
     mainBtn.querySelector(".btn-label").textContent = "Start Recording";
-    statusText.textContent = "Record your test session for AI analysis";
+    if (lastError) {
+      statusText.textContent = lastError;
+      statusText.classList.add("status-error");
+    } else {
+      statusText.textContent = "Record your test session for AI analysis";
+      statusText.classList.remove("status-error");
+    }
     quickActions.classList.add("hidden");
     stopDurationTimer();
     durationEl.textContent = "";
@@ -173,6 +183,7 @@ mainBtn.addEventListener("click", () => {
     const startTime = new Date().toISOString();
     chrome.storage.local.set({ qa_recording_start: startTime });
     recordingStartTime = new Date(startTime);
+    lastError = "";
     chrome.runtime.sendMessage(
       {
         type: "START",
@@ -210,6 +221,12 @@ chrome.runtime.onMessage.addListener((message) => {
     if (!isRecording) {
       syncSessions().finally(loadRecentSessions);
     }
+  }
+  if (message.type === "ERROR") {
+    lastError = message.message || "Recording error.";
+    isRecording = false;
+    chrome.storage.local.remove("qa_recording_start");
+    updateUI("idle");
   }
 });
 

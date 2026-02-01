@@ -22,6 +22,8 @@ const state = {
   flushTimer: null,
   idleTimer: null,
   eventQueue: [],
+  localEvents: [],
+  sessionMeta: null,
   stopInProgress: false,
   pendingChunkUploads: 0,
   pendingChunkWaiters: [],
@@ -166,6 +168,8 @@ async function createSession(tab, env) {
     status: response.session.status,
     metadata: response.session.metadata
   });
+
+  return response.session;
 }
 
 async function startSession() {
@@ -192,8 +196,10 @@ async function attachDebugger(tabId) {
     await chrome.debugger.attach({ tabId }, "1.3");
     await chrome.debugger.sendCommand({ tabId }, "Log.enable");
     await chrome.debugger.sendCommand({ tabId }, "Network.enable");
+    return true;
   } catch (err) {
     console.warn("Debugger attach failed", err);
+    return false;
   }
 }
 
@@ -369,6 +375,7 @@ function enqueueEvent(event) {
     debugLog("event dropped (not recording)", { type: event?.type });
     return;
   }
+  state.localEvents.push(event);
   state.eventQueue.push(event);
   flushEvents().catch(() => {});
   scheduleFlush();
@@ -391,15 +398,42 @@ async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverr
 
   debugLog("start recording", { tabId: tab.id, url: tab.url });
   await ensureDevice();
+
+  const attached = await attachDebugger(tab.id);
+  if (!attached) {
+    state.recording = false;
+    state.status = "idle";
+    await persistState();
+    notifyError("Unable to attach debugger. Close other debuggers and try again.");
+    notifyStatus("Stopped");
+    return;
+  }
+  debugLog("debugger attached");
+
   if (state.sessionId && state.status === "paused") {
     await resumeSession();
     const details = await apiFetch(`/sessions/${state.sessionId}`);
     state.chunkIndex = details?.chunks?.length || state.chunkIndex;
+    state.sessionMeta = {
+      id: details?.id || state.sessionId,
+      started_at: details?.started_at || new Date().toISOString(),
+      url: details?.metadata?.url || tab.url,
+      title: details?.metadata?.title || tab.title,
+      metadata: details?.metadata || {}
+    };
     await updateSessionEntry(state.sessionId, { status: "recording" });
   } else {
-    await createSession(tab, env);
+    const session = await createSession(tab, env);
     await startSession();
+    state.sessionMeta = {
+      id: session.id,
+      started_at: session.started_at,
+      url: tab.url,
+      title: tab.title,
+      metadata: session.metadata || {}
+    };
     state.eventQueue = [];
+    state.localEvents = [];
   }
 
   state.recording = true;
@@ -412,11 +446,6 @@ async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverr
   state.lastUrl = tab.url || null;
   state.lastActivity = Date.now();
   await persistState();
-
-  await attachDebugger(tab.id);
-  debugLog("debugger attached");
-  await startCapture(tab.id);
-  debugLog("capture started");
 
   chrome.tabs.sendMessage(tab.id, { type: "HIDE_RESUME_PROMPT" });
 
@@ -462,10 +491,6 @@ async function stopRecording() {
       await detachDebugger(state.currentTabId);
     }
 
-    if (wasRecording) {
-      await stopCapture();
-      await waitForOffscreenStop(5000);
-    }
     await flushEvents({ force: true });
     state.eventQueue = [];
     try {
@@ -473,14 +498,7 @@ async function stopRecording() {
     } catch {
       // ignore
     }
-    const uploadsDone = await waitForOffscreenUploads(15000);
-    if (!uploadsDone) {
-      debugLog("pending uploads timeout");
-    }
-    if (state.receivedChunks === 0) {
-      await createSyntheticChunk(sessionId);
-      await waitForPendingUploads(15000);
-    }
+    await downloadSession(sessionId);
     try {
       await stopSession();
     } finally {
@@ -493,6 +511,35 @@ async function stopRecording() {
     debugLog("recording stopped", { sessionId });
   } finally {
     state.stopInProgress = false;
+  }
+}
+
+async function downloadSession(sessionId) {
+  if (!sessionId) return;
+  try {
+    const meta = state.sessionMeta || {};
+    const payload = {
+      session: {
+        id: sessionId,
+        started_at: meta.started_at || null,
+        ended_at: new Date().toISOString(),
+        url: meta.url || state.lastUrl,
+        title: meta.title || "",
+        metadata: meta.metadata || {}
+      },
+      events: state.localEvents.slice()
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const filename = `qa-session-${sessionId}.json`;
+    await chrome.downloads.download({ url, filename, saveAs: false });
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (err) {
+    debugLog("download failed", { error: err?.message || String(err) });
+    notifyError("Failed to download session file.");
+  } finally {
+    state.localEvents = [];
+    state.sessionMeta = null;
   }
 }
 
@@ -549,6 +596,10 @@ function notifyStatus(value) {
   chrome.runtime.sendMessage({ type: "STATUS", value });
 }
 
+function notifyError(message) {
+  chrome.runtime.sendMessage({ type: "ERROR", message });
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === "INTERACTION") {
     ensureStateReady().then(() => {
@@ -588,6 +639,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch((err) => {
         console.error("Start recording failed", err);
         debugLog("start failed", { error: err?.message || String(err) });
+        notifyError(err?.message || "Failed to start recording.");
         sendResponse({ ok: false, error: err?.message || String(err) });
       });
     return true;
