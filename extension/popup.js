@@ -24,6 +24,7 @@ let isRecording = false;
 let recordingStartTime = null;
 let durationInterval = null;
 let authToken = null;
+let apiBase = DEFAULT_API_BASE;
 let lastError = "";
 let lastState = "";
 let lastStateReason = "";
@@ -50,6 +51,7 @@ chrome.storage.local.get(
     "qa_recording_start",
     "qa_auth_token",
     "qa_auth_email",
+    "qa_api_base",
     "qa_debug",
     "qa_last_error",
     "qa_last_state",
@@ -58,6 +60,7 @@ chrome.storage.local.get(
   ],
   (state) => {
     authToken = state.qa_auth_token || null;
+    apiBase = state.qa_api_base || DEFAULT_API_BASE;
     if (state.qa_auth_email) {
       loginEmail.value = state.qa_auth_email;
     }
@@ -179,7 +182,7 @@ async function handleLogin() {
 
   loginStatus.textContent = "Signing in...";
   try {
-    const authUrl = DEFAULT_API_BASE.replace(/\/api\/?$/, "") + "/api/auth/login";
+    const authUrl = (apiBase || DEFAULT_API_BASE).replace(/\/api\/?$/, "") + "/api/auth/login";
     const res = await fetch(authUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -207,7 +210,7 @@ demoBtn.addEventListener("click", () => {
   handleLogin();
 });
 
-mainBtn.addEventListener("click", () => {
+mainBtn.addEventListener("click", async () => {
   if (!authToken) {
     loginStatus.textContent = "Login required.";
     return;
@@ -224,6 +227,14 @@ mainBtn.addEventListener("click", () => {
       syncSessions().finally(loadRecentSessions);
     });
   } else {
+    let streamInfo = null;
+    try {
+      streamInfo = await getActiveStream();
+    } catch (err) {
+      setLastError(err?.message || "Unable to capture the active tab.");
+      updateUI("idle");
+      return;
+    }
     const startTime = new Date().toISOString();
     chrome.storage.local.set({ qa_recording_start: startTime, qa_last_error: "" });
     recordingStartTime = new Date(startTime);
@@ -233,8 +244,10 @@ mainBtn.addEventListener("click", () => {
     chrome.runtime.sendMessage(
       {
         type: "START",
-        apiBase: DEFAULT_API_BASE,
-        debug: debugToggle.checked
+        apiBase: apiBase || DEFAULT_API_BASE,
+        debug: debugToggle.checked,
+        streamId: streamInfo?.streamId,
+        captureTabId: streamInfo?.tabId
       },
       (response) => {
         if (chrome.runtime?.lastError) {
@@ -308,7 +321,7 @@ async function syncSessions() {
         return;
       }
       try {
-        const res = await fetch(`${DEFAULT_API_BASE}/sessions?device_id=${deviceId}`, {
+        const res = await fetch(`${apiBase || DEFAULT_API_BASE}/sessions?device_id=${deviceId}`, {
           headers: {
             "x-device-id": deviceId,
             "Authorization": `Bearer ${token}`,
@@ -321,6 +334,34 @@ async function syncSessions() {
         // ignore network failures
       }
       resolve();
+    });
+  });
+}
+
+function getActiveStream() {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs && tabs[0];
+      if (!tab?.id) {
+        reject(new Error("No active tab found."));
+        return;
+      }
+
+      chrome.tabCapture.getMediaStreamId(
+        { consumerTabId: tab.id, targetTabId: tab.id },
+        (streamId) => {
+          const err = chrome.runtime?.lastError;
+          if (err) {
+            reject(new Error(err.message || "Failed to capture tab."));
+            return;
+          }
+          if (!streamId) {
+            reject(new Error("Failed to capture tab."));
+            return;
+          }
+          resolve({ streamId, tabId: tab.id });
+        }
+      );
     });
   });
 }

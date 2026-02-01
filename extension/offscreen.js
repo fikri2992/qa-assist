@@ -13,6 +13,8 @@ let currentSessionId = null;
 let apiBase = "http://localhost:4000/api";
 let authToken = null;
 let pendingUploads = 0;
+let pendingChunks = [];
+let pendingFlushInFlight = false;
 let stopRequested = false;
 
 chrome.runtime.sendMessage({ type: "OFFSCREEN_READY" });
@@ -22,6 +24,8 @@ async function startRecording({ streamId, chunkDurationMs, chunkStartIndex, debu
   debugEnabled = !!debug;
   currentSessionId = sessionId || null;
   pendingUploads = 0;
+  pendingChunks = [];
+  pendingFlushInFlight = false;
   stopRequested = false;
   chunkDurationMsRef = chunkDurationMs;
 
@@ -50,6 +54,8 @@ async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, ses
   debugEnabled = !!debug;
   currentSessionId = sessionId || null;
   pendingUploads = 0;
+  pendingChunks = [];
+  pendingFlushInFlight = false;
   stopRequested = false;
   chunkDurationMsRef = chunkDurationMs;
 
@@ -181,8 +187,25 @@ function logDebug(message, detail) {
 function maybeNotifyUploadsDone() {
   if (!stopRequested) return;
   if (pendingUploads > 0) return;
+  if (pendingChunks.length > 0 || pendingFlushInFlight) return;
   chrome.runtime.sendMessage({ type: "OFFSCREEN_UPLOADS_DONE" });
   currentSessionId = null;
+}
+
+async function flushPendingChunks() {
+  if (pendingFlushInFlight) return;
+  if (!currentSessionId) return;
+  if (pendingChunks.length === 0) return;
+  pendingFlushInFlight = true;
+  try {
+    while (pendingChunks.length > 0) {
+      const next = pendingChunks.shift();
+      await uploadChunk({ sessionId: currentSessionId, ...next });
+    }
+  } finally {
+    pendingFlushInFlight = false;
+    maybeNotifyUploadsDone();
+  }
 }
 
 function getApiBase() {
@@ -222,7 +245,11 @@ function shouldAttachAuth(uploadUrl) {
 }
 
 async function uploadChunk({ sessionId, chunkIndex, startTs, endTs, mimeType, blob, fake }) {
-  if (!sessionId) return;
+  if (!sessionId) {
+    pendingChunks.push({ chunkIndex, startTs, endTs, mimeType, blob, fake });
+    logDebug("chunk queued (session pending)", { index: chunkIndex, bytes: blob.size, fake });
+    return;
+  }
   pendingUploads += 1;
   let chunkResponse = null;
   try {
@@ -394,6 +421,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
+  }
+
+  if (message.type === "OFFSCREEN_SET_SESSION") {
+    const nextSessionId = message.sessionId || null;
+    if (nextSessionId) {
+      currentSessionId = nextSessionId;
+    }
+    if (Number.isFinite(message.chunkStartIndex)) {
+      chunkIndex = message.chunkStartIndex;
+    }
+    flushPendingChunks();
+    sendResponse({ ok: true });
+    return;
   }
 
   if (message.type === "OFFSCREEN_STOP") {

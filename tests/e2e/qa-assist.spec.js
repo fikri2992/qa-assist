@@ -15,6 +15,7 @@ const E2E_CHUNK_MS = process.env.QA_E2E_CHUNK_MS
 const E2E_RECORD_MS = process.env.QA_E2E_RECORD_MS
   ? Number(process.env.QA_E2E_RECORD_MS)
   : 5000;
+const REQUIRE_REAL_CAPTURE = process.env.QA_E2E_REQUIRE_REAL_CAPTURE === '1';
 const API_BASE = (() => {
   if (process.env.QA_API_BASE) return process.env.QA_API_BASE;
   if (fs.existsSync(STATE_FILE)) {
@@ -238,7 +239,7 @@ async function readDeviceInfo(context, extensionId) {
 async function readExtensionState(context, extensionId) {
   const page = await getExtensionPage(context, extensionId);
   return page.evaluate(() => new Promise((resolve) => {
-    chrome.storage.local.get(['qa_recording', 'qa_status', 'qa_session_id'], resolve);
+    chrome.storage.local.get(['qa_recording', 'qa_status', 'qa_session_id', 'qa_capture_mode'], resolve);
   }));
 }
 
@@ -303,17 +304,44 @@ test('records a full session with extension + backend + AI', async () => {
     const authData = await authRes.json();
     const authToken = authData.token;
     const authPage = await getExtensionPage(context, extensionId);
-    await authPage.evaluate(({ token, email }) => {
-      chrome.storage.local.set({ qa_auth_token: token, qa_auth_email: email });
-    }, { token: authToken, email: AUTH_EMAIL });
+    await authPage.evaluate(({ token, email, apiBase }) => {
+      chrome.storage.local.set({ qa_auth_token: token, qa_auth_email: email, qa_api_base: apiBase });
+    }, { token: authToken, email: AUTH_EMAIL, apiBase: API_BASE });
 
     await logStep('starting recording', appPage);
     await appPage.bringToFront();
+    const streamInfo = await authPage.evaluate(() => new Promise((resolve) => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tab = tabs && tabs[0];
+        if (!tab?.id) {
+          resolve({ error: 'no_active_tab' });
+          return;
+        }
+        chrome.tabCapture.getMediaStreamId({ consumerTabId: tab.id, targetTabId: tab.id }, (streamId) => {
+          const err = chrome.runtime?.lastError;
+          if (err || !streamId) {
+            resolve({ error: err?.message || 'stream_id_failed' });
+            return;
+          }
+          resolve({ streamId, tabId: tab.id });
+        });
+      });
+    }));
+
+    if (streamInfo?.error) {
+      if (REQUIRE_REAL_CAPTURE) {
+        throw new Error(`Failed to acquire streamId: ${streamInfo.error}`);
+      }
+      await logStep(`streamId unavailable (${streamInfo.error}); falling back to synthetic capture`, appPage);
+    }
+
     await sendExtensionMessage(context, extensionId, {
       type: 'START',
       apiBase: API_BASE,
       debug: VISUAL,
-      chunkDurationMs: E2E_CHUNK_MS
+      chunkDurationMs: E2E_CHUNK_MS,
+      streamId: streamInfo?.streamId,
+      captureTabId: streamInfo?.tabId
     });
 
     const offscreenState = await readOffscreenState(context, extensionId);
@@ -356,6 +384,15 @@ test('records a full session with extension + backend + AI', async () => {
       if (!state) return null;
       return !state.qa_recording && !state.qa_session_id ? state : null;
     }, 15000, 500, 'extension reset', appPage);
+
+    const captureState = await readExtensionState(context, extensionId);
+    if (streamInfo?.streamId) {
+      expect(captureState?.qa_capture_mode).toBe('real');
+    } else if (REQUIRE_REAL_CAPTURE) {
+      expect(captureState?.qa_capture_mode).toBe('real');
+    } else {
+      expect(['fake', 'real', null]).toContain(captureState?.qa_capture_mode);
+    }
 
     await appPage.waitForTimeout(2500);
     const syntheticStatus = await readDebugSynthetic(context, extensionId);
