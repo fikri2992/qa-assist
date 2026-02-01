@@ -46,6 +46,7 @@ function handleLogout() {
             <input v-model="password" type="password" placeholder="••••••••" />
           </label>
           <button class="login-btn" @click="handleLogin">Login</button>
+          <button class="demo-btn" @click="useDemoAccount">Use Demo Account</button>
         </div>
 
         <p v-if="error" class="error-text">{{ error }}</p>
