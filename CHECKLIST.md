@@ -19,6 +19,7 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 ## 02 - Requirements and Decisions (`plan/02-requirements-and-decisions.md`)
 - [~] Start/stop recording from extension UI. (stop API not called before sessionId reset)
 - [~] Stop flow flushes events and final chunk before ending session.
+- [x] Require login for extension + webapp (seeded demo user, bearer token, no expiry).
 - [x] 10-minute chunked video. (extension/background.js)
 - [x] Console + network logs. (extension/background.js)
 - [x] Interaction capture with DOM context. (extension/content.js)
@@ -47,6 +48,8 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] Analysis service endpoints (analyze/aggregate/chat). (ai/app/api/*)
 
 ## 04 - Data Model (`plan/04-data-model.md`)
+- [x] Users + auth tokens tables. (backend/priv/repo/migrations/20260201010000_create_users_and_tokens.exs)
+- [x] Devices linked to user. (backend/priv/repo/migrations/20260201010100_add_user_id_to_devices.exs)
 - [x] Devices table. (backend/priv/repo/migrations/20260131000448_create_recording_tables.exs)
 - [x] Sessions table.
 - [x] Chunks table.
@@ -55,6 +58,7 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] Session metadata includes env + URL/title. (backend/lib/qa_assist/recording.ex)
 
 ## 05 - API (`plan/05-api.md`)
+- [x] `POST /auth/login` login and issue token. (auth_controller.ex)
 - [x] `POST /devices` create device. (device_controller.ex)
 - [x] `POST /sessions` create session. (session_controller.ex)
 - [x] `POST /sessions/:id/start`
@@ -82,6 +86,7 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] Tab switch handling (auto-pause). (resume prompt)
 - [~] Markers + annotations overlay. (popup buttons not wired)
 - [x] Session list stored locally. (popup syncs list)
+- [x] Login required (token stored in popup, Bearer auth on API calls).
 - [~] Event queue only records during active session. (needs gating)
 
 ## 07 - Web App (`plan/07-webapp.md`)
@@ -93,6 +98,7 @@ Legend: [x] done - [~] partial/stub - [ ] not started
 - [x] Annotations list tab. (webapp/src/components/tabs/AnnotationsTab.vue)
 - [~] Annotations overlay. (pins + list exist; video overlay missing)
 - [x] Chat UI.
+- [x] Login screen + logout. (webapp/src/pages/SessionsPage.vue + sidebar)
 - [x] Downloadable repro scripts. (Playwright script)
 - [~] Extension deep-link route matches router. (extension uses /sessions/:id; router uses /session/:id)
 

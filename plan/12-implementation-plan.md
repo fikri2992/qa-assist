@@ -6,6 +6,10 @@ Goal: close critical gaps, align CHECKLIST.md with reality, and deliver a comple
 P0 = must fix for correctness/demo, P1 = completeness, P2 = quality/nice-to-have.
 
 ## Phase 0 (P0): Correctness + pipeline integrity
+0) Auth requirement for extension + webapp (done)
+   - Require login via seeded demo user; use Bearer token for API calls.
+   - Acceptance: login works in webapp + extension; token gates session APIs.
+
 1) Stop flow correctness
    - Fix extension stop flow so `/sessions/:id/stop` is always called before clearing `sessionId`.
    - Ensure the final event batch is flushed and the last chunk is fully uploaded before stop.
@@ -26,6 +30,10 @@ P0 = must fix for correctness/demo, P1 = completeness, P2 = quality/nice-to-have
    - Handle `MARKER` and `ANNOTATE` messages in background worker.
    - Reuse existing overlay logic (content script) and fallbacks.
    - Acceptance: buttons open the overlay or log fallback markers.
+
+4a) Sidebar logout button (done)
+    - Provide logout action for the authenticated webapp.
+    - Acceptance: logout clears auth and returns to sessions view.
 
 5) Webapp deep-link consistency
    - Align router with extension link (`/sessions/:id`), or update the extension to `/session/:id`.
@@ -69,10 +77,12 @@ P0 = must fix for correctness/demo, P1 = completeness, P2 = quality/nice-to-have
 - UI checks: extension buttons, deep links, annotation overlay, status styling.
 
 ## Tracking (checkboxes)
+- [x] P0-0 Auth login requirement (seeded user + bearer token)
 - [ ] P0-1 Stop flow correctness
 - [ ] P0-2 GCS analysis enqueue
 - [ ] P0-3 Event queue gating
 - [ ] P1-4 Popup marker/annotation buttons
+- [x] P1-4a Sidebar logout button
 - [ ] P1-5 Deep-link consistency
 - [ ] P1-6 Annotation overlay in playback
 - [ ] P1-7 Status mapping
