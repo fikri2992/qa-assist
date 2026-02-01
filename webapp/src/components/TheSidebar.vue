@@ -26,6 +26,47 @@ function getStatusInfo(status) {
   return mapSessionStatus(status);
 }
 
+function formatTime(ts) {
+  if (!ts) return "";
+  const date = new Date(ts);
+  const now = new Date();
+  const time = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (date.toDateString() === now.toDateString()) {
+    return `Today ${time}`;
+  }
+  return `${date.toLocaleDateString()} ${time}`;
+}
+
+function formatDuration(startTs, endTs) {
+  if (!startTs || !endTs) return "";
+  const diff = Math.max(0, new Date(endTs).getTime() - new Date(startTs).getTime());
+  const totalSeconds = Math.floor(diff / 1000);
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  if (mins <= 0) return `${secs}s`;
+  return `${mins}m ${secs.toString().padStart(2, "0")}s`;
+}
+
+function sessionMeta(session) {
+  if (!session) return "";
+  if (session.status === "recording") {
+    return `Started ${formatTime(session.started_at) || "recently"}`;
+  }
+  if (session.status === "paused") {
+    return `Paused ${formatTime(session.idle_paused_at || session.started_at) || ""}`.trim();
+  }
+  if (session.status === "ended") {
+    const time = formatTime(session.ended_at || session.started_at);
+    const duration = formatDuration(session.started_at, session.ended_at);
+    return [time, duration].filter(Boolean).join(" · ");
+  }
+  return formatTime(session.inserted_at || session.started_at);
+}
+
+function showStatusBadge(status) {
+  return ["recording", "paused", "failed"].includes(status);
+}
+
 function handleLogout() {
   sessionsStore.logout();
   router.push({ name: "sessions" });
@@ -65,8 +106,12 @@ onMounted(() => {
           @click="handleSelectSession(session)"
         >
           <i class="pi pi-file"></i>
-          <span class="session-id">{{ formatSessionId(session.id) }}</span>
+          <div class="session-info">
+            <span class="session-id">{{ formatSessionId(session.id) }}</span>
+            <span class="session-meta">{{ sessionMeta(session) }}</span>
+          </div>
           <span
+            v-if="showStatusBadge(session.status)"
             class="session-status"
             :class="getStatusInfo(session.status).className"
           >
@@ -225,6 +270,14 @@ onMounted(() => {
   text-align: left;
 }
 
+.session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
 .session-item:hover {
   background: var(--bg-hover);
   color: var(--text-primary);
@@ -242,39 +295,68 @@ onMounted(() => {
 }
 
 .session-id {
-  flex: 1;
   font-family: monospace;
+  color: var(--text-primary);
+}
+
+.session-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .session-status {
   font-size: 10px;
-  padding: 2px 6px;
+  padding: 2px 6px 2px 8px;
   border-radius: 4px;
   background: transparent;
   border: 1px solid var(--border-subtle);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+.session-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--status-color, var(--text-muted));
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.02);
 }
 
 .session-status.completed {
-  background: transparent;
-  color: var(--text-muted);
+  --status-color: #2f855a;
+  background: rgba(47, 133, 90, 0.08);
+  border-color: rgba(47, 133, 90, 0.25);
+  color: #2f855a;
 }
 
 .session-status.failed {
-  background: transparent;
-  color: var(--text-muted);
+  --status-color: #b91c1c;
+  background: rgba(185, 28, 28, 0.08);
+  border-color: rgba(185, 28, 28, 0.25);
+  color: #b91c1c;
 }
 
 .session-status.recording {
-  background: transparent;
-  color: var(--text-muted);
+  --status-color: #1d4ed8;
+  background: rgba(29, 78, 216, 0.08);
+  border-color: rgba(29, 78, 216, 0.25);
+  color: #1d4ed8;
 }
 
 .session-status.paused {
-  background: transparent;
-  color: var(--text-muted);
+  --status-color: #b45309;
+  background: rgba(180, 83, 9, 0.08);
+  border-color: rgba(180, 83, 9, 0.25);
+  color: #b45309;
 }
 
 .session-status.unknown {

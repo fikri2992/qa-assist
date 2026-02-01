@@ -545,6 +545,8 @@ async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverr
   }
   recordState("recording", "started");
 
+  await startCapture(tab.id);
+
   chrome.tabs.sendMessage(tab.id, { type: "HIDE_RESUME_PROMPT" });
 
   enqueueEvent({
