@@ -222,7 +222,9 @@ defmodule QaAssist.Artifacts do
     base_dir =
       :code.priv_dir(:qa_assist)
       |> to_string()
-      |> Path.join(["static", "storage", "artifacts"])
+
+    base_dir =
+      Path.join([base_dir, "static", "storage", "artifacts"])
 
     Path.join(base_dir, "session-#{session_id}.json")
   end
