@@ -77,6 +77,30 @@ defmodule QaAssist.Artifacts do
 
   def get_artifact(_), do: {:error, :not_found}
 
+  def ensure_local_artifact(%Artifact{kind: "session-json", gcs_uri: gcs_uri}) when is_binary(gcs_uri) do
+    if Storage.backend_module() == QaAssist.Storage.Gcs do
+      :ok
+    else
+      filename = Path.basename(gcs_uri)
+      desired = local_artifact_path(filename)
+
+      cond do
+        File.exists?(desired) ->
+          :ok
+
+        File.exists?(legacy_artifact_path(filename)) ->
+          File.mkdir_p!(Path.dirname(desired))
+          File.cp!(legacy_artifact_path(filename), desired)
+          :ok
+
+        true ->
+          :missing
+      end
+    end
+  end
+
+  def ensure_local_artifact(_), do: :ok
+
   def store_session_json(session_id, payload) do
     content = Jason.encode!(payload, pretty: true)
     byte_size = byte_size(content)
@@ -227,6 +251,18 @@ defmodule QaAssist.Artifacts do
       Path.join([base_dir, "static", "storage", "artifacts"])
 
     Path.join(base_dir, "session-#{session_id}.json")
+  end
+
+  defp local_artifact_path(filename) do
+    :code.priv_dir(:qa_assist)
+    |> to_string()
+    |> Path.join(["static", "storage", "artifacts", filename])
+  end
+
+  defp legacy_artifact_path(filename) do
+    :code.priv_dir(:qa_assist)
+    |> to_string()
+    |> Path.join(["staticstorageartifacts", filename])
   end
 
   defp upsert_artifact(attrs) do

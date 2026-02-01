@@ -383,6 +383,26 @@ test('records a full session with extension + backend + AI', async () => {
     expect(sessionDetail.chunks.length).toBeGreaterThan(0);
     expect(events.length).toBeGreaterThan(0);
 
+    await logStep('fetching artifacts', appPage);
+    const artifactsRes = await context.request.get(`${API_BASE}/sessions/${session.id}/artifacts`, { headers });
+    const artifacts = await artifactsRes.json();
+    const sessionJson = artifacts.find((artifact) => artifact.kind === 'session-json' && artifact.id);
+    expect(sessionJson).toBeTruthy();
+
+    await logStep('downloading session json artifact', appPage);
+    const artifactRes = await context.request.get(`${API_BASE}/artifacts/${sessionJson.id}`, { headers });
+    let downloadRes = artifactRes;
+    if (artifactRes.status() === 302) {
+      const location = artifactRes.headers()['location'];
+      const baseUrl = API_BASE.replace(/\/api\/?$/, '');
+      const targetUrl = location.startsWith('http') ? location : `${baseUrl}${location}`;
+      downloadRes = await context.request.get(targetUrl, { headers });
+    }
+    expect(downloadRes.ok()).toBeTruthy();
+    const jsonText = await downloadRes.text();
+    const parsed = JSON.parse(jsonText);
+    expect(parsed.events?.length).toBeGreaterThan(0);
+
     const eventCount = events.length;
     await logStep('sending post-stop interaction', appPage);
     await authPage.evaluate(() => {

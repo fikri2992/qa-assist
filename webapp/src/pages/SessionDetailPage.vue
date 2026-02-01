@@ -5,10 +5,13 @@ import { useSessionsStore } from "../stores/sessions";
 import { storeToRefs } from "pinia";
 import ProgressSpinner from "primevue/progressspinner";
 import Message from "primevue/message";
+import Button from "primevue/button";
 import VideoPlayer from "../components/VideoPlayer.vue";
 import SessionTabs from "../components/SessionTabs.vue";
+import { useRouter } from "vue-router";
 
 const route = useRoute();
+const router = useRouter();
 const sessionsStore = useSessionsStore();
 const { currentSession, loading, error } = storeToRefs(sessionsStore);
 
@@ -24,6 +27,18 @@ watch(() => route.params.id, (newId) => {
     sessionsStore.selectSession(newId);
   }
 });
+
+async function handleDelete() {
+  if (!currentSession.value?.id) return;
+  const ok = window.confirm("Delete this session? This cannot be undone.");
+  if (!ok) return;
+  await sessionsStore.deleteSession(currentSession.value.id);
+  router.push({ name: "sessions" });
+}
+
+function formatSessionId(id) {
+  return id?.slice(0, 8) || "";
+}
 </script>
 
 <template>
@@ -35,6 +50,20 @@ watch(() => route.params.id, (newId) => {
       {{ error }}
     </Message>
     <template v-else-if="currentSession">
+      <div class="session-header">
+        <div>
+          <p class="session-kicker">Session</p>
+          <h2 class="session-title">{{ formatSessionId(currentSession.id) }}</h2>
+        </div>
+        <Button
+          label="Delete session"
+          icon="pi pi-trash"
+          severity="danger"
+          outlined
+          size="small"
+          @click="handleDelete"
+        />
+      </div>
       <VideoPlayer />
       <SessionTabs />
     </template>
@@ -46,6 +75,30 @@ watch(() => route.params.id, (newId) => {
   display: flex;
   flex-direction: column;
   flex: 1;
+}
+
+.session-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-base);
+}
+
+.session-kicker {
+  margin: 0 0 var(--space-1);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.session-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .loading-state {

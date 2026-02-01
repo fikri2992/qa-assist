@@ -272,6 +272,22 @@ export const useSessionsStore = defineStore("sessions", () => {
     }
   }
 
+  async function deleteSession(sessionId) {
+    if (!sessionId) return;
+    await fetchJson(`${apiBase.value}/sessions/${sessionId}`, { method: "DELETE" });
+    sessions.value = sessions.value.filter((session) => session.id !== sessionId);
+    if (currentSession.value?.id === sessionId) {
+      currentSession.value = null;
+      analysis.value = null;
+      events.value = [];
+      artifacts.value = [];
+      chunks.value = [];
+      currentChunkIndex.value = 0;
+      stopAnalysisPolling();
+      stopLivePolling();
+    }
+  }
+
   return {
     apiBase,
     authToken,
@@ -305,5 +321,6 @@ export const useSessionsStore = defineStore("sessions", () => {
     stopLivePolling,
     refreshArtifacts,
     rebuildSessionJson,
+    deleteSession,
   };
 });

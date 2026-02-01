@@ -93,6 +93,16 @@ defmodule QaAssistWeb.SessionController do
     end
   end
 
+  def delete(conn, %{"id" => id}) do
+    with {:ok, session} <- ControllerHelpers.require_session(conn, id),
+         {:ok, _} <- Recording.delete_session(session) do
+      json(conn, %{ok: true})
+    else
+      {:error, %Plug.Conn{} = conn} -> conn
+      {:error, _} -> ControllerHelpers.send_error(conn, 400, "failed to delete session")
+    end
+  end
+
   def show(conn, %{"id" => id}) do
     with {:ok, session} <- ControllerHelpers.require_session(conn, id) do
       chunks = Recording.list_chunks(session.id)

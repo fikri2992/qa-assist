@@ -28,6 +28,10 @@ defmodule QaAssistWeb.ArtifactController do
           {:ok, artifact} ->
             case ControllerHelpers.require_session(conn, artifact.session_id) do
               {:ok, _session} ->
+                if Storage.backend_module() != QaAssist.Storage.Gcs do
+                  Artifacts.ensure_local_artifact(artifact)
+                end
+
                 case Storage.media_url(artifact.gcs_uri) do
                   nil ->
                     ControllerHelpers.send_error(conn, 404, "artifact not found")

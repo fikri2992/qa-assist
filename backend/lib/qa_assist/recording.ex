@@ -164,6 +164,12 @@ defmodule QaAssist.Recording do
 
   def get_chunk(id), do: Repo.get(Chunk, id)
 
+  def delete_session(%Session{} = session) do
+    Repo.delete(session)
+  end
+
+  def delete_session(_), do: {:error, :invalid_session}
+
   def record_events(session_id, events) when is_list(events) do
     entries =
       Enum.reduce(events, [], fn event, acc ->
