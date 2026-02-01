@@ -5,7 +5,7 @@ import Card from "primevue/card";
 import Message from "primevue/message";
 
 const sessionsStore = useSessionsStore();
-const { annotations } = storeToRefs(sessionsStore);
+const { annotations, currentSession } = storeToRefs(sessionsStore);
 
 function formatDate(value) {
   if (!value) return "";
@@ -30,7 +30,8 @@ function formatDate(value) {
       </Card>
     </div>
     <Message v-else severity="info" :closable="false">
-      No annotations yet.
+      <span v-if="currentSession?.status === 'recording'">Waiting for annotations...</span>
+      <span v-else>No annotations yet.</span>
     </Message>
   </div>
 </template>

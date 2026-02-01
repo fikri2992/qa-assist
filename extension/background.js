@@ -26,7 +26,9 @@ const state = {
   pendingChunkUploads: 0,
   pendingChunkWaiters: [],
   offscreenStopped: false,
-  offscreenStopWaiters: []
+  offscreenStopWaiters: [],
+  offscreenUploadsDone: false,
+  offscreenUploadWaiters: []
 };
 
 let flushInFlight = false;
@@ -233,7 +235,9 @@ async function startCapture(tabId) {
       sessionId: state.sessionId,
       chunkDurationMs,
       chunkStartIndex: state.chunkIndex,
-      debug: state.debug
+      debug: state.debug,
+      apiBase: state.apiBase,
+      authToken: state.authToken
     });
   } catch (err) {
     console.warn("tabCapture failed, falling back to fake capture", err);
@@ -242,7 +246,9 @@ async function startCapture(tabId) {
       sessionId: state.sessionId,
       chunkDurationMs,
       chunkStartIndex: state.chunkIndex,
-      debug: state.debug
+      debug: state.debug,
+      apiBase: state.apiBase,
+      authToken: state.authToken
     });
   }
 }
@@ -308,6 +314,25 @@ function waitForOffscreenStop(timeoutMs) {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(false), timeoutMs);
     state.offscreenStopWaiters.push(() => {
+      clearTimeout(timer);
+      resolve(true);
+    });
+  });
+}
+
+function markOffscreenUploadsDone() {
+  state.offscreenUploadsDone = true;
+  const waiters = state.offscreenUploadWaiters.slice();
+  state.offscreenUploadWaiters = [];
+  waiters.forEach((resolve) => resolve());
+  debugLog("offscreen uploads done");
+}
+
+function waitForOffscreenUploads(timeoutMs) {
+  if (state.offscreenUploadsDone) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), timeoutMs);
+    state.offscreenUploadWaiters.push(() => {
       clearTimeout(timer);
       resolve(true);
     });
@@ -382,6 +407,7 @@ async function startRecording(apiBaseOverride, debugOverride, chunkDurationOverr
   state.autoPaused = false;
   state.stopInProgress = false;
   state.receivedChunks = 0;
+  state.offscreenUploadsDone = false;
   state.currentTabId = tab.id;
   state.lastUrl = tab.url || null;
   state.lastActivity = Date.now();
@@ -447,9 +473,9 @@ async function stopRecording() {
     } catch {
       // ignore
     }
-    const uploadsDone = await waitForPendingUploads(15000);
+    const uploadsDone = await waitForOffscreenUploads(15000);
     if (!uploadsDone) {
-      debugLog("pending uploads timeout", { pending: state.pendingChunkUploads });
+      debugLog("pending uploads timeout");
     }
     if (state.receivedChunks === 0) {
       await createSyntheticChunk(sessionId);
@@ -551,6 +577,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     sendResponse({ ok: true });
     return true;
   }
+  if (message.type === "OFFSCREEN_UPLOADS_DONE") {
+    markOffscreenUploadsDone();
+    sendResponse({ ok: true });
+    return true;
+  }
   if (message.type === "START") {
     startRecording(message.apiBase, message.debug, message.chunkDurationMs)
       .then(() => sendResponse({ ok: true }))
@@ -600,6 +631,22 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         sendResponse({ ok: false, error: err?.message || String(err) });
       });
     return true;
+  }
+  if (message.type === "CHUNK_UPLOADED") {
+    ensureStateReady().then(() => {
+      state.receivedChunks += 1;
+      if (Number.isFinite(message.chunkIndex)) {
+        state.chunkIndex = Math.max(state.chunkIndex, message.chunkIndex + 1);
+      }
+      debugLog("chunk uploaded", {
+        index: message.chunkIndex,
+        bytes: message.byteSize,
+        fake: message.fake
+      });
+    });
+  }
+  if (message.type === "CHUNK_FAILED") {
+    debugLog("chunk upload failed", { index: message.chunkIndex, error: message.error });
   }
   if (message.type === "ANNOTATION_SUBMIT") {
     if (state.recording) {

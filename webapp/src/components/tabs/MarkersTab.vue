@@ -5,7 +5,7 @@ import Card from "primevue/card";
 import Message from "primevue/message";
 
 const sessionsStore = useSessionsStore();
-const { markers } = storeToRefs(sessionsStore);
+const { markers, currentSession } = storeToRefs(sessionsStore);
 
 function formatDate(value) {
   if (!value) return "";
@@ -30,7 +30,8 @@ function formatDate(value) {
       </Card>
     </div>
     <Message v-else severity="info" :closable="false">
-      No markers yet.
+      <span v-if="currentSession?.status === 'recording'">Waiting for markers...</span>
+      <span v-else>No markers yet.</span>
     </Message>
   </div>
 </template>

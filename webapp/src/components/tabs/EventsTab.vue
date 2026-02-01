@@ -5,7 +5,7 @@ import Card from "primevue/card";
 import Message from "primevue/message";
 
 const sessionsStore = useSessionsStore();
-const { interactions } = storeToRefs(sessionsStore);
+const { interactions, currentSession } = storeToRefs(sessionsStore);
 </script>
 
 <template>
@@ -25,7 +25,8 @@ const { interactions } = storeToRefs(sessionsStore);
       </Card>
     </div>
     <Message v-else severity="info" :closable="false">
-      No interactions captured.
+      <span v-if="currentSession?.status === 'recording'">Capturing interactions...</span>
+      <span v-else>No interactions captured.</span>
     </Message>
   </div>
 </template>

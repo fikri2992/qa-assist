@@ -36,6 +36,7 @@ export const useSessionsStore = defineStore("sessions", () => {
 
   // Polling
   let analysisPoller = null;
+  let eventsPoller = null;
 
   // Computed
   const currentChunk = computed(() => chunks.value[currentChunkIndex.value] || null);
@@ -120,6 +121,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     artifacts.value = [];
     chunks.value = [];
     currentChunkIndex.value = 0;
+    stopLivePolling();
     saveConnection();
   }
 
@@ -156,6 +158,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     loading.value = true;
     error.value = null;
     stopAnalysisPolling();
+    stopLivePolling();
 
     try {
       const [session, sessionAnalysis, sessionEvents, sessionArtifacts] = await Promise.all([
@@ -173,6 +176,7 @@ export const useSessionsStore = defineStore("sessions", () => {
       currentChunkIndex.value = 0;
 
       startAnalysisPolling(sessionId);
+      startLivePolling(sessionId);
     } catch (err) {
       error.value = err.message;
     } finally {
@@ -209,6 +213,47 @@ export const useSessionsStore = defineStore("sessions", () => {
     }
   }
 
+  async function refreshEvents(sessionId) {
+    if (!currentSession.value || currentSession.value.id !== sessionId) return;
+    try {
+      const sessionEvents = await fetchJson(`${apiBase.value}/sessions/${sessionId}/events?limit=1000`);
+      events.value = sessionEvents.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
+    } catch {
+      // ignore polling failures
+    }
+  }
+
+  async function refreshSession(sessionId) {
+    if (!currentSession.value || currentSession.value.id !== sessionId) return;
+    try {
+      const session = await fetchJson(`${apiBase.value}/sessions/${sessionId}`);
+      currentSession.value = session;
+      chunks.value = session.chunks.slice().sort((a, b) => a.idx - b.idx);
+    } catch {
+      // ignore polling failures
+    }
+  }
+
+  function startLivePolling(sessionId) {
+    stopLivePolling();
+    const poll = async () => {
+      if (!currentSession.value || currentSession.value.id !== sessionId) return;
+      await Promise.all([refreshSession(sessionId), refreshEvents(sessionId)]);
+      if (currentSession.value?.status === "ended") {
+        stopLivePolling();
+      }
+    };
+    eventsPoller = setInterval(poll, 4000);
+    poll();
+  }
+
+  function stopLivePolling() {
+    if (eventsPoller) {
+      clearInterval(eventsPoller);
+      eventsPoller = null;
+    }
+  }
+
   return {
     apiBase,
     authToken,
@@ -238,5 +283,7 @@ export const useSessionsStore = defineStore("sessions", () => {
     setCurrentChunk,
     nextChunk,
     stopAnalysisPolling,
+    startLivePolling,
+    stopLivePolling,
   };
 });
