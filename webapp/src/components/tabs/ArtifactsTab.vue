@@ -74,6 +74,19 @@ const chunkStats = computed(() => {
   return { state: "ready", label: `${ready} chunks ready`, hint: "Video playback is available above." };
 });
 
+const videoChunk = computed(() => {
+  if (!chunks.value.length) return null;
+  return chunks.value.find((chunk) => chunk.status === "ready" && chunk.gcs_uri) || null;
+});
+
+const videoDownloadUrl = computed(() => sessionsStore.chunkDownloadUrl(videoChunk.value?.id));
+
+const videoDownloadLabel = computed(() => {
+  if (videoChunk.value?.status === "ready") return "Download video";
+  if (currentSession.value?.status === "ended") return "Video not ready yet";
+  return "Video available after stop";
+});
+
 async function rebuildSessionJson() {
   if (!currentSession.value?.id || rebuildState.value.loading) return;
   rebuildState.value = { loading: true, error: "" };
@@ -156,7 +169,17 @@ function formatBytes(value) {
             </div>
           </div>
           <div class="row-actions">
-            <span class="row-hint">{{ chunkStats.hint }}</span>
+            <Button
+              v-if="videoDownloadUrl"
+              label="Download video"
+              icon="pi pi-download"
+              size="small"
+              outlined
+              as="a"
+              :href="videoDownloadUrl"
+              target="_blank"
+            />
+            <span v-else class="row-hint">{{ videoDownloadLabel }}</span>
           </div>
         </div>
       </div>

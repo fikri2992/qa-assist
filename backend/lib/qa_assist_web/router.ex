@@ -31,6 +31,7 @@ defmodule QaAssistWeb.Router do
     post "/sessions/:id/chunks", ChunkController, :create
     patch "/chunks/:id", ChunkController, :update
     post "/chunks/:id/upload", ChunkController, :upload
+    get "/chunks/:id/download", ChunkController, :download
 
     post "/sessions/:id/events", EventController, :create
     get "/sessions/:id/events", EventController, :index

@@ -6,10 +6,14 @@ import Button from "primevue/button";
 
 const sessionsStore = useSessionsStore();
 const { chunks, currentChunkIndex, currentChunk, currentSession, events } = storeToRefs(sessionsStore);
+const { chunkDownloadUrl } = sessionsStore;
 
 const videoRef = ref(null);
 
-const videoUrl = computed(() => currentChunk.value?.video_url || "");
+const videoUrl = computed(() => {
+  if (!currentChunk.value || currentChunk.value.status !== "ready") return "";
+  return chunkDownloadUrl(currentChunk.value.id);
+});
 
 // Timeline calculations
 const timelineSegments = computed(() => {

@@ -79,6 +79,12 @@ export const useSessionsStore = defineStore("sessions", () => {
     return res.json();
   }
 
+  function chunkDownloadUrl(chunkId) {
+    if (!chunkId) return "";
+    const token = authToken.value ? encodeURIComponent(authToken.value) : "";
+    return `${apiBase.value}/chunks/${chunkId}/download?auth_token=${token}`;
+  }
+
   function saveConnection() {
     localStorage.setItem("qa_api_base", apiBase.value);
     localStorage.setItem("qa_auth_token", authToken.value);
@@ -322,5 +328,6 @@ export const useSessionsStore = defineStore("sessions", () => {
     refreshArtifacts,
     rebuildSessionJson,
     deleteSession,
+    chunkDownloadUrl,
   };
 });

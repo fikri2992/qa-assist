@@ -66,6 +66,28 @@ defmodule QaAssistWeb.ChunkController do
     ControllerHelpers.send_error(conn, 400, "file upload missing")
   end
 
+  def download(conn, %{"id" => id}) do
+    case ControllerHelpers.require_chunk(conn, id) do
+      {:ok, chunk} ->
+        cond do
+          is_nil(chunk.gcs_uri) ->
+            ControllerHelpers.send_error(conn, 404, "video not available")
+
+          chunk.status != "ready" ->
+            ControllerHelpers.send_error(conn, 409, "video not ready")
+
+          true ->
+            case Storage.media_url(chunk.gcs_uri) do
+              nil -> ControllerHelpers.send_error(conn, 404, "video not available")
+              url -> redirect(conn, external: url)
+            end
+        end
+
+      {:error, conn} ->
+        conn
+    end
+  end
+
   defp chunk_payload(chunk) do
     %{
       id: chunk.id,
