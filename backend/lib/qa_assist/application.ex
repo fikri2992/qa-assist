@@ -7,6 +7,8 @@ defmodule QaAssist.Application do
 
   @impl true
   def start(_type, _args) do
+    QaAssist.EnvLoader.load!()
+
     children =
       [
         QaAssistWeb.Telemetry,
