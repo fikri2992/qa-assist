@@ -1,39 +1,62 @@
+const RECORDING_TIMESLICE_MS = 1000;
+const DEFAULT_API_BASE = "http://localhost:4000/api";
+
 let isRecording = false;
 let mediaRecorder = null;
 let streamRef = null;
-let chunkIndex = 0;
-let currentChunkStart = null;
-let chunkTimer = null;
-let chunkDurationMsRef = 0;
 let fakeCanvas = null;
 let fakeCtx = null;
 let fakeTimer = null;
+
 let debugEnabled = false;
-let currentSessionId = null;
-let apiBase = "http://localhost:4000/api";
+let apiBase = DEFAULT_API_BASE;
 let authToken = null;
-let pendingUploads = 0;
-let pendingChunks = [];
-let pendingFlushInFlight = false;
+
+let currentSessionId = null;
+let currentCaptureToken = null;
+let currentChunkIndex = 0;
+let firstChunkReported = false;
+
+let recordingStartTs = null;
+let recordedParts = [];
+let recordingMimeType = "video/webm";
+
 let stopRequested = false;
+let uploadInFlight = false;
+let pendingUpload = null;
 
 chrome.runtime.sendMessage({ type: "OFFSCREEN_READY" });
 
-async function startRecording({ streamId, chunkDurationMs, chunkStartIndex, debug, sessionId }) {
-  if (isRecording) return;
+function resetRecordingState({ sessionId, captureToken, chunkStartIndex, debug }) {
   debugEnabled = !!debug;
   currentSessionId = sessionId || null;
-  pendingUploads = 0;
-  pendingChunks = [];
-  pendingFlushInFlight = false;
+  currentCaptureToken = captureToken ?? null;
+  currentChunkIndex = Number.isFinite(chunkStartIndex) ? chunkStartIndex : 0;
+  firstChunkReported = false;
   stopRequested = false;
-  chunkDurationMsRef = chunkDurationMs;
+  uploadInFlight = false;
+  pendingUpload = null;
+  recordingStartTs = Date.now();
+  recordedParts = [];
+}
 
+async function startRecording({
+  streamId,
+  debug,
+  sessionId,
+  captureToken,
+  captureSource,
+  chunkStartIndex
+}) {
+  if (isRecording) return;
+  resetRecordingState({ sessionId, captureToken, chunkStartIndex, debug });
+
+  const mediaSource = captureSource || "tab";
   streamRef = await navigator.mediaDevices.getUserMedia({
     audio: false,
     video: {
       mandatory: {
-        chromeMediaSource: "tab",
+        chromeMediaSource: mediaSource,
         chromeMediaSourceId: streamId
       }
     }
@@ -43,21 +66,15 @@ async function startRecording({ streamId, chunkDurationMs, chunkStartIndex, debu
     ? "video/webm;codecs=vp9"
     : "video/webm";
 
+  recordingMimeType = mimeType;
   isRecording = true;
-  chunkIndex = Number.isFinite(chunkStartIndex) ? chunkStartIndex : 0;
   logDebug("offscreen recording started");
-  startChunkRecorder(mimeType, { fake: false });
+  startRecorder(mimeType, false);
 }
 
-async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, sessionId }) {
+async function startFixtureRecording({ debug, sessionId, captureToken, chunkStartIndex }) {
   if (isRecording) return;
-  debugEnabled = !!debug;
-  currentSessionId = sessionId || null;
-  pendingUploads = 0;
-  pendingChunks = [];
-  pendingFlushInFlight = false;
-  stopRequested = false;
-  chunkDurationMsRef = chunkDurationMs;
+  resetRecordingState({ sessionId, captureToken, chunkStartIndex, debug });
 
   fakeCanvas = document.createElement("canvas");
   fakeCanvas.width = 1280;
@@ -71,8 +88,8 @@ async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, ses
     ? "video/webm;codecs=vp9"
     : "video/webm";
 
+  recordingMimeType = mimeType;
   isRecording = true;
-  chunkIndex = Number.isFinite(chunkStartIndex) ? chunkStartIndex : 0;
   logDebug("fake recording started");
 
   fakeTimer = setInterval(() => {
@@ -81,99 +98,117 @@ async function startFakeRecording({ chunkDurationMs, chunkStartIndex, debug, ses
     fakeCtx.fillRect(0, 0, fakeCanvas.width, fakeCanvas.height);
     fakeCtx.fillStyle = "#f8fafc";
     fakeCtx.font = "32px sans-serif";
-    fakeCtx.fillText("QA Assist E2E", 40, 80);
+    fakeCtx.fillText("QA Assist Fixture", 40, 80);
     fakeCtx.font = "20px sans-serif";
     fakeCtx.fillText(new Date().toISOString(), 40, 130);
   }, 200);
 
-  startChunkRecorder(mimeType, { fake: true });
+  startRecorder(mimeType, true);
+}
+
+function startRecorder(mimeType, fake) {
+  if (!streamRef) return;
+
+  mediaRecorder = new MediaRecorder(streamRef, { mimeType });
+
+  mediaRecorder.ondataavailable = (event) => {
+    if (!event.data || event.data.size === 0) {
+      logDebug("chunk empty", { size: event.data?.size || 0, fake });
+      return;
+    }
+    recordedParts.push(event.data);
+    if (!firstChunkReported) {
+      firstChunkReported = true;
+      chrome.runtime.sendMessage({
+        type: "OFFSCREEN_FIRST_CHUNK",
+        captureToken: currentCaptureToken,
+        ts: new Date(recordingStartTs || Date.now()).toISOString()
+      });
+    }
+  };
+
+  mediaRecorder.onerror = (event) => {
+    logDebug("media recorder error", {
+      error: event?.error?.message || String(event?.error || "unknown"),
+      fake
+    });
+  };
+
+  mediaRecorder.onstop = () => {
+    finalizeStop(fake);
+  };
+
+  mediaRecorder.start(RECORDING_TIMESLICE_MS);
 }
 
 function stopRecording() {
-  if (!isRecording) return;
-  isRecording = false;
   stopRequested = true;
-  logDebug("offscreen recording stopped");
-  const stoppedSessionId = currentSessionId;
 
-  if (chunkTimer) {
-    clearTimeout(chunkTimer);
-    chunkTimer = null;
+  if (!isRecording) {
+    chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: currentSessionId });
+    maybeNotifyUploadsDone();
+    return;
   }
+
+  isRecording = false;
+  logDebug("offscreen recording stopped");
 
   if (mediaRecorder && mediaRecorder.state !== "inactive") {
     mediaRecorder.stop();
   } else {
-    chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
+    finalizeStop(false);
   }
 
+  cleanupFixture();
+}
+
+function finalizeStop(fake) {
+  isRecording = false;
+  const stoppedSessionId = currentSessionId;
+  const endTs = Date.now();
+  const startTs = recordingStartTs || endTs;
+  const blob = new Blob(recordedParts, { type: recordingMimeType || "video/webm" });
+  recordedParts = [];
+
+  chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
+  cleanupStream();
+  if (fake) {
+    cleanupFixture();
+  }
+
+  if (blob.size === 0) {
+    logDebug("final blob empty", { sessionId: stoppedSessionId });
+    maybeNotifyUploadsDone();
+    return;
+  }
+
+  queueUpload({
+    sessionId: stoppedSessionId,
+    chunkIndex: currentChunkIndex,
+    startTs,
+    endTs,
+    mimeType: blob.type || "video/webm",
+    blob,
+    fake: !!fake
+  });
+}
+
+function cleanupStream() {
+  if (streamRef) {
+    streamRef.getTracks().forEach((track) => track.stop());
+    streamRef = null;
+  }
+  mediaRecorder = null;
+  currentCaptureToken = null;
+}
+
+function cleanupFixture() {
   if (fakeTimer) {
     clearInterval(fakeTimer);
     fakeTimer = null;
   }
   fakeCtx = null;
   fakeCanvas = null;
-
-  if (streamRef) {
-    streamRef.getTracks().forEach((track) => track.stop());
-    streamRef = null;
-  }
-
-  mediaRecorder = null;
-
-  maybeNotifyUploadsDone();
-}
-
-function startChunkRecorder(mimeType, { fake }) {
-  if (!streamRef) return;
-
-  mediaRecorder = new MediaRecorder(streamRef, { mimeType });
-  const stoppedSessionId = currentSessionId;
-  currentChunkStart = Date.now();
-
-  mediaRecorder.ondataavailable = async (event) => {
-    if (!event.data || event.data.size === 0) {
-      logDebug("chunk empty", { size: event.data?.size || 0, fake });
-      return;
-    }
-    const startTs = currentChunkStart;
-    const endTs = Date.now();
-
-    const blob = event.data;
-    await uploadChunk({
-      sessionId: currentSessionId,
-      chunkIndex,
-      startTs,
-      endTs,
-      mimeType: blob.type,
-      blob,
-      fake
-    });
-    logDebug("chunk captured", { index: chunkIndex, bytes: blob.size, fake });
-
-    chunkIndex += 1;
-  };
-
-  mediaRecorder.onstop = () => {
-    if (chunkTimer) {
-      clearTimeout(chunkTimer);
-      chunkTimer = null;
-    }
-
-    if (stopRequested) {
-      chrome.runtime.sendMessage({ type: "OFFSCREEN_STOPPED", sessionId: stoppedSessionId });
-      return;
-    }
-
-    startChunkRecorder(mimeType, { fake });
-  };
-
-  mediaRecorder.start();
-  chunkTimer = setTimeout(() => {
-    if (mediaRecorder && mediaRecorder.state === "recording") {
-      mediaRecorder.stop();
-    }
-  }, Math.max(1000, chunkDurationMsRef || 0));
 }
 
 function logDebug(message, detail) {
@@ -186,30 +221,29 @@ function logDebug(message, detail) {
 
 function maybeNotifyUploadsDone() {
   if (!stopRequested) return;
-  if (pendingUploads > 0) return;
-  if (pendingChunks.length > 0 || pendingFlushInFlight) return;
+  if (uploadInFlight) return;
+  if (pendingUpload) return;
   chrome.runtime.sendMessage({ type: "OFFSCREEN_UPLOADS_DONE" });
   currentSessionId = null;
 }
 
-async function flushPendingChunks() {
-  if (pendingFlushInFlight) return;
-  if (!currentSessionId) return;
-  if (pendingChunks.length === 0) return;
-  pendingFlushInFlight = true;
-  try {
-    while (pendingChunks.length > 0) {
-      const next = pendingChunks.shift();
-      await uploadChunk({ sessionId: currentSessionId, ...next });
-    }
-  } finally {
-    pendingFlushInFlight = false;
-    maybeNotifyUploadsDone();
+function queueUpload(payload) {
+  if (!payload.sessionId) {
+    pendingUpload = payload;
+    return;
   }
+  uploadRecording(payload).catch(() => {});
+}
+
+function tryUploadPending() {
+  if (!pendingUpload || uploadInFlight || !currentSessionId) return;
+  const payload = { ...pendingUpload, sessionId: currentSessionId };
+  pendingUpload = null;
+  uploadRecording(payload).catch(() => {});
 }
 
 function getApiBase() {
-  return (apiBase || "http://localhost:4000/api").replace(/\/$/, "");
+  return (apiBase || DEFAULT_API_BASE).replace(/\/$/, "");
 }
 
 async function apiFetch(path, options = {}) {
@@ -244,13 +278,31 @@ function shouldAttachAuth(uploadUrl) {
   }
 }
 
-async function uploadChunk({ sessionId, chunkIndex, startTs, endTs, mimeType, blob, fake }) {
-  if (!sessionId) {
-    pendingChunks.push({ chunkIndex, startTs, endTs, mimeType, blob, fake });
-    logDebug("chunk queued (session pending)", { index: chunkIndex, bytes: blob.size, fake });
+async function directUpload(uploadUrl, uploadMethod, uploadHeaders, blob) {
+  const authHeaders = {};
+  if (authToken) authHeaders["Authorization"] = `Bearer ${authToken}`;
+  const shouldAuth = shouldAttachAuth(uploadUrl);
+
+  if (uploadMethod.toUpperCase() === "PUT") {
+    await fetch(uploadUrl, {
+      method: "PUT",
+      headers: shouldAuth ? { ...uploadHeaders, ...authHeaders } : uploadHeaders,
+      body: blob
+    });
     return;
   }
-  pendingUploads += 1;
+
+  const formData = new FormData();
+  formData.append("file", blob, `chunk-${Date.now()}.webm`);
+  await fetch(uploadUrl, {
+    method: uploadMethod,
+    headers: shouldAuth ? authHeaders : undefined,
+    body: formData
+  });
+}
+
+async function uploadRecording({ sessionId, chunkIndex, startTs, endTs, mimeType, blob, fake }) {
+  uploadInFlight = true;
   let chunkResponse = null;
   try {
     if (!authToken) {
@@ -319,85 +371,17 @@ async function uploadChunk({ sessionId, chunkIndex, startTs, endTs, mimeType, bl
       fake: !!fake
     });
   } catch (err) {
-    logDebug("chunk upload failed", { index: chunkIndex, error: err?.message || String(err) });
-    const canFallback = !chunkResponse;
-    if (canFallback) {
-      try {
-        const buffer = await blob.arrayBuffer();
-        await sendChunkToBackground({
-          sessionId,
-          chunkIndex,
-          startTs,
-          endTs,
-          mimeType,
-          data: buffer,
-          fake: !!fake
-        });
-        return;
-      } catch (fallbackError) {
-        logDebug("chunk fallback failed", {
-          index: chunkIndex,
-          error: fallbackError?.message || String(fallbackError)
-        });
-        chrome.runtime.sendMessage({
-          type: "CHUNK_FAILED",
-          sessionId,
-          chunkIndex,
-          error: fallbackError?.message || String(fallbackError)
-        });
-      }
-    } else {
-      chrome.runtime.sendMessage({
-        type: "CHUNK_FAILED",
-        sessionId,
-        chunkIndex,
-        error: err?.message || String(err)
-      });
-    }
+    logDebug("upload failed", { error: err?.message || String(err) });
+    chrome.runtime.sendMessage({
+      type: "CHUNK_FAILED",
+      sessionId,
+      chunkIndex,
+      error: err?.message || String(err)
+    });
   } finally {
-    pendingUploads = Math.max(0, pendingUploads - 1);
+    uploadInFlight = false;
     maybeNotifyUploadsDone();
   }
-}
-
-async function directUpload(uploadUrl, uploadMethod, uploadHeaders, blob) {
-  const authHeaders = {};
-  if (authToken) authHeaders["Authorization"] = `Bearer ${authToken}`;
-  const shouldAuth = shouldAttachAuth(uploadUrl);
-
-  if (uploadMethod.toUpperCase() === "PUT") {
-    await fetch(uploadUrl, {
-      method: "PUT",
-      headers: shouldAuth ? { ...uploadHeaders, ...authHeaders } : uploadHeaders,
-      body: blob
-    });
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append("file", blob, `chunk-${Date.now()}.webm`);
-  await fetch(uploadUrl, {
-    method: uploadMethod,
-    headers: shouldAuth ? authHeaders : undefined,
-    body: formData
-  });
-}
-
-function sendChunkToBackground(payload) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({ type: "CHUNK_DATA", ...payload }, (response) => {
-      const error = chrome.runtime.lastError;
-      if (error) {
-        reject(new Error(error.message || "chunk upload failed"));
-        return;
-      }
-      if (!response?.ok) {
-        reject(new Error(response?.error || "chunk upload failed"));
-        return;
-      }
-      resolve(response);
-    });
-  });
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -414,10 +398,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === "OFFSCREEN_START_FAKE") {
+  if (message.type === "OFFSCREEN_START_FIXTURE") {
     apiBase = message.apiBase || apiBase;
     authToken = message.authToken || authToken;
-    startFakeRecording(message)
+    startFixtureRecording(message)
       .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
@@ -429,9 +413,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       currentSessionId = nextSessionId;
     }
     if (Number.isFinite(message.chunkStartIndex)) {
-      chunkIndex = message.chunkStartIndex;
+      currentChunkIndex = message.chunkStartIndex;
     }
-    flushPendingChunks();
+    tryUploadPending();
     sendResponse({ ok: true });
     return;
   }

@@ -9,13 +9,11 @@ const DEBUG = process.env.QA_E2E_DEBUG === '1';
 const VISUAL = process.env.QA_E2E_VISUAL === '1' || DEBUG;
 const AUTH_EMAIL = process.env.QA_E2E_EMAIL || 'demo@qaassist.local';
 const AUTH_PASSWORD = process.env.QA_E2E_PASSWORD || 'demo123';
-const E2E_CHUNK_MS = process.env.QA_E2E_CHUNK_MS
-  ? Number(process.env.QA_E2E_CHUNK_MS)
-  : 3000;
 const E2E_RECORD_MS = process.env.QA_E2E_RECORD_MS
   ? Number(process.env.QA_E2E_RECORD_MS)
   : 5000;
-const REQUIRE_REAL_CAPTURE = process.env.QA_E2E_REQUIRE_REAL_CAPTURE === '1';
+const CAPTURE_MODE = process.env.QA_E2E_CAPTURE_MODE || 'fixture';
+const REQUIRE_REAL_CAPTURE = process.env.QA_E2E_REQUIRE_REAL_CAPTURE === '1' || CAPTURE_MODE === 'real';
 const API_BASE = (() => {
   if (process.env.QA_API_BASE) return process.env.QA_API_BASE;
   if (fs.existsSync(STATE_FILE)) {
@@ -243,13 +241,6 @@ async function readExtensionState(context, extensionId) {
   }));
 }
 
-async function readDebugSynthetic(context, extensionId) {
-  const page = await getExtensionPage(context, extensionId);
-  return page.evaluate(() => new Promise((resolve) => {
-    chrome.storage.local.get(['qa_debug_synthetic', 'qa_debug_before_synth', 'qa_debug_received_chunks'], resolve);
-  }));
-}
-
 async function readOffscreenState(context, extensionId) {
   const page = await getExtensionPage(context, extensionId);
   return page.evaluate(async () => {
@@ -271,6 +262,13 @@ test('records a full session with extension + backend + AI', async () => {
     `--disable-extensions-except=${extensionPath}`,
     `--load-extension=${extensionPath}`,
   ];
+  if (CAPTURE_MODE === 'real') {
+    launchArgs.push(
+      '--disable-features=TabCaptureRequiresUserGesture,UserActivationV2',
+      '--use-fake-ui-for-media-stream',
+      '--autoplay-policy=no-user-gesture-required'
+    );
+  }
   if (VISUAL) {
     launchArgs.push('--auto-open-devtools-for-tabs');
   }
@@ -310,38 +308,64 @@ test('records a full session with extension + backend + AI', async () => {
 
     await logStep('starting recording', appPage);
     await appPage.bringToFront();
-    const streamInfo = await authPage.evaluate(() => new Promise((resolve) => {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const tab = tabs && tabs[0];
-        if (!tab?.id) {
-          resolve({ error: 'no_active_tab' });
-          return;
-        }
-        chrome.tabCapture.getMediaStreamId({ consumerTabId: tab.id, targetTabId: tab.id }, (streamId) => {
+    let streamInfo = null;
+    if (CAPTURE_MODE === 'real') {
+      const activeTabId = await authPage.evaluate(() => new Promise((resolve) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+          resolve(tabs?.[0]?.id || null);
+        });
+      }));
+      if (!activeTabId) {
+        throw new Error('Failed to locate active tab');
+      }
+      await sendExtensionMessage(context, extensionId, {
+        type: 'INVOKE_ACTION',
+        tabId: activeTabId
+      });
+      streamInfo = await authPage.evaluate((tabId) => new Promise((resolve) => {
+        chrome.tabCapture.getMediaStreamId({ consumerTabId: tabId, targetTabId: tabId }, (streamId) => {
           const err = chrome.runtime?.lastError;
           if (err || !streamId) {
-            resolve({ error: err?.message || 'stream_id_failed' });
+            resolve({ error: err?.message || 'stream_id_failed', tabId });
             return;
           }
-          resolve({ streamId, tabId: tab.id });
+          resolve({ streamId, tabId });
         });
-      });
-    }));
+      }), activeTabId);
 
-    if (streamInfo?.error) {
-      if (REQUIRE_REAL_CAPTURE) {
+      if (streamInfo?.error && streamInfo?.tabId) {
+        const retryTabId = streamInfo.tabId;
+        await sendExtensionMessage(context, extensionId, {
+          type: 'INVOKE_ACTION',
+          tabId: retryTabId
+        });
+        streamInfo = await authPage.evaluate((tabId) => new Promise((resolve) => {
+          chrome.tabCapture.getMediaStreamId(
+            { consumerTabId: tabId, targetTabId: tabId },
+            (streamId) => {
+              const err = chrome.runtime?.lastError;
+              if (err || !streamId) {
+                resolve({ error: err?.message || 'stream_id_failed', tabId });
+                return;
+              }
+              resolve({ streamId, tabId });
+            }
+          );
+        }), retryTabId);
+      }
+
+      if (streamInfo?.error) {
         throw new Error(`Failed to acquire streamId: ${streamInfo.error}`);
       }
-      await logStep(`streamId unavailable (${streamInfo.error}); falling back to synthetic capture`, appPage);
     }
 
     await sendExtensionMessage(context, extensionId, {
       type: 'START',
       apiBase: API_BASE,
       debug: VISUAL,
-      chunkDurationMs: E2E_CHUNK_MS,
       streamId: streamInfo?.streamId,
-      captureTabId: streamInfo?.tabId
+      captureTabId: streamInfo?.tabId,
+      captureMode: streamInfo?.streamId ? 'real' : CAPTURE_MODE
     });
 
     const offscreenState = await readOffscreenState(context, extensionId);
@@ -391,15 +415,8 @@ test('records a full session with extension + backend + AI', async () => {
     } else if (REQUIRE_REAL_CAPTURE) {
       expect(captureState?.qa_capture_mode).toBe('real');
     } else {
-      expect(['fake', 'real', null]).toContain(captureState?.qa_capture_mode);
+      expect(['fixture', 'real', null]).toContain(captureState?.qa_capture_mode);
     }
-
-    await appPage.waitForTimeout(2500);
-    const syntheticStatus = await readDebugSynthetic(context, extensionId);
-    await logStep(
-      `synthetic chunk status: ${syntheticStatus?.qa_debug_synthetic || 'none'} | before=${syntheticStatus?.qa_debug_before_synth ?? 'n/a'} | received=${syntheticStatus?.qa_debug_received_chunks ?? 'n/a'}`,
-      appPage
-    );
 
     const headers = {
       Authorization: `Bearer ${authToken}`,

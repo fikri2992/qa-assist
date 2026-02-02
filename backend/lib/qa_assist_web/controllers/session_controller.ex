@@ -109,6 +109,7 @@ defmodule QaAssistWeb.SessionController do
 
       payload =
         session_payload(session)
+        |> add_recording_window(session.id)
         |> Map.put(:chunks, Enum.map(chunks, &chunk_payload/1))
 
       json(conn, payload)
@@ -126,6 +127,7 @@ defmodule QaAssistWeb.SessionController do
       inserted_at: session.inserted_at,
       storage_backend: storage_backend()
     }
+    |> add_recording_window(session.id)
   end
 
   defp session_payload(session) do
@@ -139,6 +141,23 @@ defmodule QaAssistWeb.SessionController do
       metadata: session.metadata || %{},
       storage_backend: storage_backend()
     }
+  end
+
+  defp add_recording_window(payload, session_id) do
+    {rec_start, rec_end} = Recording.recording_window(session_id) || {nil, nil}
+
+    duration_ms =
+      if rec_start && rec_end do
+        DateTime.diff(rec_end, rec_start, :millisecond)
+      else
+        nil
+      end
+
+    Map.merge(payload, %{
+      recording_started_at: rec_start,
+      recording_ended_at: rec_end,
+      recording_duration_ms: duration_ms
+    })
   end
 
   defp chunk_payload(chunk) do

@@ -227,48 +227,62 @@ mainBtn.addEventListener("click", async () => {
       syncSessions().finally(loadRecentSessions);
     });
   } else {
-    let streamInfo = null;
-    try {
-      streamInfo = await getActiveStream();
-    } catch (err) {
-      setLastError(err?.message || "Unable to capture the active tab.");
+    if (!chrome.tabCapture?.getMediaStreamId) {
+      setLastError("Tab capture API not available. Reload the extension.");
       updateUI("idle");
       return;
     }
-    const startTime = new Date().toISOString();
-    chrome.storage.local.set({ qa_recording_start: startTime, qa_last_error: "" });
-    recordingStartTime = new Date(startTime);
-    lastError = "";
-    statusText.textContent = "Starting...";
+
+    statusText.textContent = "Starting capture...";
     statusText.classList.remove("status-error");
-    chrome.runtime.sendMessage(
-      {
-        type: "START",
-        apiBase: apiBase || DEFAULT_API_BASE,
-        debug: debugToggle.checked,
-        streamId: streamInfo?.streamId,
-        captureTabId: streamInfo?.tabId
-      },
-      (response) => {
-        if (chrome.runtime?.lastError) {
-          setLastError(chrome.runtime.lastError.message || "Failed to start recording.");
-          chrome.storage.local.remove("qa_recording_start");
-          isRecording = false;
-          updateUI("idle");
-          return;
-        }
-        if (!response?.ok) {
-          setLastError(response?.error || "Failed to start recording.");
-          chrome.storage.local.remove("qa_recording_start");
-          isRecording = false;
-          updateUI("idle");
-          return;
-        }
-        isRecording = true;
-        setLastError("");
-        updateUI("recording");
+
+    chrome.tabCapture.getMediaStreamId((streamId) => {
+      const err = chrome.runtime?.lastError;
+      if (err || !streamId) {
+        setLastError(err?.message || "Error starting tab capture.");
+        updateUI("idle");
+        return;
       }
-    );
+
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const activeTab = tabs?.[0] || null;
+        const captureTabId = activeTab?.id || null;
+        if (!captureTabId) {
+          setLastError("No active tab found.");
+          updateUI("idle");
+          return;
+        }
+        if (!/^https?:\/\//i.test(activeTab?.url || "")) {
+          setLastError("Open a normal web page tab and click Start there.");
+          updateUI("idle");
+          return;
+        }
+
+        chrome.runtime.sendMessage(
+          {
+            type: "START",
+            apiBase: apiBase || DEFAULT_API_BASE,
+            debug: debugToggle.checked,
+            streamId,
+            captureMode: "real",
+            captureTabId
+          },
+          (response) => {
+            const startError = chrome.runtime?.lastError?.message || response?.error;
+            if (startError || response?.ok === false) {
+              setLastError(startError || "Failed to start recording.");
+              updateUI("idle");
+              return;
+            }
+            const startTime = new Date().toISOString();
+            chrome.storage.local.set({ qa_recording_start: startTime, qa_last_error: "" });
+            recordingStartTime = new Date(startTime);
+            lastError = "";
+            updateUI("recording");
+          }
+        );
+      });
+    });
   }
 });
 
@@ -338,33 +352,7 @@ async function syncSessions() {
   });
 }
 
-function getActiveStream() {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const tab = tabs && tabs[0];
-      if (!tab?.id) {
-        reject(new Error("No active tab found."));
-        return;
-      }
-
-      chrome.tabCapture.getMediaStreamId(
-        { consumerTabId: tab.id, targetTabId: tab.id },
-        (streamId) => {
-          const err = chrome.runtime?.lastError;
-          if (err) {
-            reject(new Error(err.message || "Failed to capture tab."));
-            return;
-          }
-          if (!streamId) {
-            reject(new Error("Failed to capture tab."));
-            return;
-          }
-          resolve({ streamId, tabId: tab.id });
-        }
-      );
-    });
-  });
-}
+// Desktop capture is handled in capture.html to keep the picker alive.
 
 function renderSessions(sessions) {
   sessionList.innerHTML = "";

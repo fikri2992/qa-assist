@@ -47,6 +47,14 @@ function formatDuration(startTs, endTs) {
   return `${mins}m ${secs.toString().padStart(2, "0")}s`;
 }
 
+function getRecordingStart(session) {
+  return session?.recording_started_at || session?.started_at || "";
+}
+
+function getRecordingEnd(session) {
+  return session?.recording_ended_at || session?.ended_at || "";
+}
+
 function sessionMeta(session) {
   if (!session) return "";
   if (session.status === "recording") {
@@ -56,8 +64,8 @@ function sessionMeta(session) {
     return `Paused ${formatTime(session.idle_paused_at || session.started_at) || ""}`.trim();
   }
   if (session.status === "ended") {
-    const time = formatTime(session.ended_at || session.started_at);
-    const duration = formatDuration(session.started_at, session.ended_at);
+    const time = formatTime(getRecordingEnd(session) || session.ended_at || session.started_at);
+    const duration = formatDuration(getRecordingStart(session), getRecordingEnd(session));
     return [time, duration].filter(Boolean).join(" · ");
   }
   return formatTime(session.inserted_at || session.started_at);

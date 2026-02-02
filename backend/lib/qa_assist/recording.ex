@@ -162,6 +162,14 @@ defmodule QaAssist.Recording do
     |> Repo.all()
   end
 
+  def recording_window(session_id) do
+    from(c in Chunk,
+      where: c.session_id == ^session_id,
+      select: {min(c.start_ts), max(c.end_ts)}
+    )
+    |> Repo.one()
+  end
+
   def get_chunk(id), do: Repo.get(Chunk, id)
 
   def delete_session(%Session{} = session) do
